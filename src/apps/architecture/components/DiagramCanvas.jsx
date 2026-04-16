@@ -1,38 +1,34 @@
-import { lazy, Suspense, useState, useCallback } from 'react';
+import { lazy, Suspense, useState, useCallback } from 'react'
 
-// Lazy load the actual Excalidraw component
 const ExcalidrawComponent = lazy(() =>
   import('@excalidraw/excalidraw').then(mod => ({ default: mod.Excalidraw }))
-);
+)
 
 export default function DiagramCanvas({ scenarioId }) {
-  const storageKey = `arch_diagram_${scenarioId}`;
+  const storageKey = `arch_diagram_${scenarioId}`
 
-  // Load saved elements from localStorage
   const loadSaved = () => {
     try {
-      const raw = localStorage.getItem(storageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  };
+      const raw = localStorage.getItem(storageKey)
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  }
 
-  const [savedData] = useState(loadSaved);
+  const [savedData] = useState(loadSaved)
 
-  const handleChange = useCallback((elements, appState) => {
-    // Save on every change (debounce would be ideal but keep it simple)
+  const handleChange = useCallback((elements) => {
     try {
-      // Only save non-empty canvases
       if (elements && elements.length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify(elements));
+        localStorage.setItem(storageKey, JSON.stringify(elements))
       }
     } catch {}
-  }, [storageKey]);
+  }, [storageKey])
 
   return (
-    <div className="diagram-canvas-wrap">
+    <div className="h-full w-full overflow-hidden rounded-xl border border-white/[0.07] bg-zinc-900/50" style={{ minHeight: 400 }}>
       <Suspense fallback={
-        <div className="diagram-loading">
-          <div className="diagram-loading-spinner" />
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-[13px] text-zinc-600">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-zinc-700 border-t-teal-500" />
           <span>Loading canvas...</span>
         </div>
       }>
@@ -51,5 +47,5 @@ export default function DiagramCanvas({ scenarioId }) {
         />
       </Suspense>
     </div>
-  );
+  )
 }
