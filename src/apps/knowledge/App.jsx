@@ -1,5 +1,6 @@
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { URLS } from '../../config';
 import Home from './pages/Home';
 import Terraform from './pages/Terraform';
 import Terragrunt from './pages/Terragrunt';
@@ -87,7 +88,7 @@ function Sidebar({ isOpen, onClose }) {
   return (
     <nav id="sidebar" className={isOpen ? 'sidebar-open' : undefined}>
       <div id="sidebar-header">
-        <a href="/" className="sidebar-portfolio-link">← Portfolio</a>
+        <a href={URLS.portfolio} className="sidebar-portfolio-link">← Portfolio</a>
         <h1>
           <span className="header-dot"></span>
           DevOps KB
