@@ -127,19 +127,33 @@ docker compose up             # frontend + pocketbase backend
 
 ## Build Phases
 
-### Phase 0 — Monorepo Scaffold
+### Phase 0 — Monorepo Scaffold ✅ DONE
 **Agent: DevOps (Haiku)**
 | # | Task | Status |
 |---|------|--------|
-| P0-1 | Create repo structure (`src/apps/`, `src/shared/`, `agents/`) | ⬜ |
-| P0-2 | Merge `package.json` deps from all 3 apps | ⬜ |
-| P0-3 | Create root `vite.config.js`, `index.html`, `main.jsx` | ⬜ |
-| P0-4 | Copy `src/` from devops-knowledge → `src/apps/knowledge/` | ⬜ |
-| P0-5 | Copy `src/` from devops-quiz → `src/apps/quiz/` | ⬜ |
-| P0-6 | Copy `src/` from devops-architecture → `src/apps/architecture/` | ⬜ |
-| P0-7 | Wire root `App.jsx` with React Router (3 app sections) | ⬜ |
-| P0-8 | Fix all import paths after migration | ⬜ |
-| P0-9 | `npm run build` passes with zero errors | ⬜ |
+| P0-1 | Create repo structure (`src/apps/`, `src/shared/`, `agents/`) | ✅ |
+| P0-2 | Merge `package.json` deps from all 3 apps | ✅ |
+| P0-3 | Create root `vite.config.js`, `index.html`, `main.jsx` | ✅ |
+| P0-4 | Copy `src/` from devops-knowledge → `src/apps/knowledge/` | ✅ |
+| P0-5 | Copy `src/` from devops-quiz → `src/apps/quiz/` | ✅ |
+| P0-6 | Copy `src/` from devops-architecture → `src/apps/architecture/` | ✅ |
+| P0-7 | Wire root `App.jsx` with React Router (3 app sections) | ✅ |
+| P0-8 | Fix all import paths after migration | ✅ |
+| P0-9 | `npm run build` passes with zero errors | ✅ |
+
+---
+
+### Phase CI — GitHub Actions CI/CD
+**Agent: DevOps (Opus)**
+| # | Task | Status |
+|---|------|--------|
+| CI-1 | `ci.yml` — lint + build + test on every PR and push to main | ⬜ |
+| CI-2 | `deploy.yml` — deploy to Cloudflare Pages on merge to main | ⬜ |
+| CI-3 | Cloudflare Pages project linked to repo, env vars set | ⬜ |
+| CI-4 | `VITE_PLATFORM_URL` + `VITE_PORTFOLIO_URL` in Cloudflare Pages env | ⬜ |
+| CI-5 | `VITE_PORTFOLIO_URL=https://lieltavor.com` in prod env | ⬜ |
+| CI-6 | Lighthouse CI on every build (perf ≥ 85, a11y ≥ 90) | ⬜ |
+| CI-7 | Status badges in README | ⬜ |
 
 ---
 
