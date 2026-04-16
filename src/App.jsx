@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import TopBar from './shared/components/TopBar'
 
 const KnowledgeApp = lazy(() => import('@knowledge/App'))
 const QuizApp = lazy(() => import('@quiz/App'))
@@ -25,6 +26,7 @@ function LoadingScreen() {
 export default function App() {
   return (
     <BrowserRouter>
+      <TopBar />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<Navigate to="/knowledge" replace />} />

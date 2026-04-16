@@ -1,6 +1,7 @@
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { URLS } from '../../config';
+import './styles/index.css';
 import Home from './pages/Home';
 import Terraform from './pages/Terraform';
 import Terragrunt from './pages/Terragrunt';

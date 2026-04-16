@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import './styles/index.css';
 import TopBar from './components/TopBar';
 import QuizHome from './pages/QuizHome';
 import QuizSession from './pages/QuizSession';
