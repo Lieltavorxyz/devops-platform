@@ -1,0 +1,59 @@
+[
+  {
+    "name": "scores",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "name": "category",
+        "type": "text",
+        "required": true,
+        "options": { "min": 1, "max": 64 }
+      },
+      {
+        "name": "difficulty",
+        "type": "text",
+        "required": true,
+        "options": { "min": 1, "max": 16 }
+      },
+      {
+        "name": "score",
+        "type": "number",
+        "required": true,
+        "options": { "min": 0, "max": null }
+      },
+      {
+        "name": "total",
+        "type": "number",
+        "required": true,
+        "options": { "min": 1, "max": null }
+      },
+      {
+        "name": "pct",
+        "type": "number",
+        "required": true,
+        "options": { "min": 0, "max": 100 }
+      },
+      {
+        "name": "nickname",
+        "type": "text",
+        "required": false,
+        "options": { "min": null, "max": 32 }
+      },
+      {
+        "name": "device_fp",
+        "type": "text",
+        "required": false,
+        "options": { "min": null, "max": 64 }
+      }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_scores_category_difficulty ON scores (category, difficulty)",
+      "CREATE INDEX idx_scores_pct ON scores (pct DESC)"
+    ]
+  }
+]
