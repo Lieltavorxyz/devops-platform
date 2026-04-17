@@ -4,11 +4,11 @@ import { categories, questions } from '../data/quizData';
 import { useScores } from '../../../shared/hooks/useScores';
 
 const DIFFICULTIES = [
-  { id: 'all',    label: 'All',    color: 'var(--text-3)',   dim: 'transparent' },
-  { id: 'easy',   label: 'Easy',   color: 'var(--green)',    dim: 'var(--green-dim)'  },
-  { id: 'normal', label: 'Normal', color: 'var(--blue)',     dim: 'var(--blue-dim)'   },
-  { id: 'hard',   label: 'Hard',   color: 'var(--orange)',   dim: 'var(--orange-dim)' },
-  { id: 'expert', label: 'Expert', color: 'var(--purple)',   dim: 'var(--purple-dim)' },
+  { id: 'all',    label: 'All',    color: 'var(--text-2)',  dim: 'transparent'       },
+  { id: 'easy',   label: 'Easy',   color: 'var(--green)',   dim: 'var(--green-dim)'  },
+  { id: 'normal', label: 'Normal', color: 'var(--blue)',    dim: 'var(--blue-dim)'   },
+  { id: 'hard',   label: 'Hard',   color: 'var(--orange)',  dim: 'var(--orange-dim)' },
+  { id: 'expert', label: 'Expert', color: 'var(--purple)',  dim: 'var(--purple-dim)' },
 ];
 
 const COLOR_MAP = {
@@ -44,19 +44,20 @@ export default function QuizHome() {
             <h1>DevOps Quiz</h1>
             <p>Real interview questions across 6 domains</p>
           </div>
-          <Link to="/quiz/leaderboard" className="btn-outline" style={{ marginTop: 6 }}>
+          <Link to="/quiz/leaderboard" className="btn-outline" style={{ marginTop: 4, fontSize: 13 }}>
             🏆 Leaderboard
           </Link>
         </div>
-        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div className="quiz-home-meta">
           <span className="quiz-total-stat">{totalQuestions} questions</span>
-          {/* Difficulty filter */}
           <div className="diff-filter-bar">
             {DIFFICULTIES.map((d) => (
               <button
                 key={d.id}
                 className={`diff-filter-btn${selectedDiff === d.id ? ' diff-filter-btn--active' : ''}`}
-                style={selectedDiff === d.id ? { color: d.color, background: d.dim, borderColor: d.color } : {}}
+                style={selectedDiff === d.id
+                  ? { color: d.color, background: d.dim, borderColor: d.color }
+                  : {}}
                 onClick={() => setSelectedDiff(d.id)}
               >
                 {d.label}
@@ -91,10 +92,10 @@ export default function QuizHome() {
               <p className="quiz-cat-desc">{cat.description}</p>
               <div className="quiz-cat-meta">
                 <div>
-                  <span className="quiz-cat-count">
+                  <div className="quiz-cat-count">
                     {count} {count === 1 ? 'question' : 'questions'}
-                    {selectedDiff !== 'all' && ` · ${selectedDiff}`}
-                  </span>
+                    {selectedDiff !== 'all' && <> · <span style={{ color: colors.accent }}>{selectedDiff}</span></>}
+                  </div>
                   {best && (
                     <div className="best-score-label">
                       Best: <span>{best.score}/{best.total} ({best.pct}%)</span>
@@ -103,18 +104,20 @@ export default function QuizHome() {
                 </div>
                 {selectedDiff === 'all' && (
                   <div className="quiz-diff-pills">
-                    {diff.easy   > 0 && <span className="diff-pill easy">{diff.easy} easy</span>}
-                    {diff.normal > 0 && <span className="diff-pill normal">{diff.normal} normal</span>}
-                    {diff.hard   > 0 && <span className="diff-pill hard">{diff.hard} hard</span>}
-                    {diff.expert > 0 && <span className="diff-pill expert">{diff.expert} expert</span>}
+                    {diff.easy   > 0 && <span className="diff-pill easy">{diff.easy}</span>}
+                    {diff.normal > 0 && <span className="diff-pill normal">{diff.normal}</span>}
+                    {diff.hard   > 0 && <span className="diff-pill hard">{diff.hard}</span>}
+                    {diff.expert > 0 && <span className="diff-pill expert">{diff.expert}</span>}
                   </div>
                 )}
               </div>
               {disabled ? (
-                <span className="quiz-start-btn quiz-start-btn--disabled">No {selectedDiff} questions</span>
+                <span className="quiz-start-btn quiz-start-btn--disabled">
+                  No {selectedDiff} questions
+                </span>
               ) : (
                 <Link to={startTo} className="quiz-start-btn">
-                  Start <span>&rarr;</span>
+                  Start <span>→</span>
                 </Link>
               )}
             </div>
