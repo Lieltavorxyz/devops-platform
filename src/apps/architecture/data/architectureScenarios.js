@@ -2,7 +2,7 @@ export const scenarios = [
   {
     id: 'ha-eks',
     title: 'High-Availability EKS on AWS',
-    difficulty: 'advanced',
+    difficulty: 'hard',
     tags: ['eks', 'kubernetes', 'aws', 'networking'],
     estimatedMinutes: 20,
     description: 'Design a production-grade EKS cluster that survives an AZ failure without downtime, covering VPC layout, compute, networking, IAM, and observability.',
@@ -92,7 +92,7 @@ export const scenarios = [
   {
     id: 'multi-account-cicd',
     title: 'Multi-Account CI/CD Pipeline',
-    difficulty: 'advanced',
+    difficulty: 'hard',
     tags: ['aws', 'terraform', 'terragrunt', 'argocd', 'cicd', 'iam'],
     estimatedMinutes: 25,
     description: 'Build a secure, auditable pipeline that deploys infrastructure and applications across isolated AWS accounts (dev, staging, prod) using OIDC auth, Terragrunt, and ArgoCD multi-cluster.',
@@ -182,7 +182,7 @@ export const scenarios = [
   {
     id: 'secrets-management',
     title: 'Secrets Management with ESO + Vault',
-    difficulty: 'intermediate',
+    difficulty: 'normal',
     tags: ['secrets', 'eso', 'vault', 'kubernetes', 'irsa', 'security'],
     estimatedMinutes: 15,
     description: 'Design a secrets management pipeline that keeps secrets out of Git and etcd, rotates them without pod restarts, and maintains a full audit trail using External Secrets Operator and HashiCorp Vault.',
@@ -272,7 +272,7 @@ export const scenarios = [
   {
     id: 'gitops-argocd',
     title: 'GitOps with ArgoCD + ApplicationSets',
-    difficulty: 'intermediate',
+    difficulty: 'normal',
     tags: ['argocd', 'gitops', 'kubernetes', 'helm', 'kustomize'],
     estimatedMinutes: 15,
     description: 'Design a GitOps workflow using ArgoCD that scales across multiple clusters and teams, with ApplicationSets for automation, Projects for RBAC, and sync waves for ordered deployment.',
@@ -362,7 +362,7 @@ export const scenarios = [
   {
     id: 'cost-optimized-eks',
     title: 'Cost-Optimised EKS with Karpenter + Spot',
-    difficulty: 'intermediate',
+    difficulty: 'normal',
     tags: ['eks', 'karpenter', 'spot', 'cost', 'kubernetes', 'aws'],
     estimatedMinutes: 20,
     description: 'Design an EKS cluster that minimises compute costs through Karpenter Spot integration, right-sizing discipline, bin packing, and cost visibility tooling — without sacrificing reliability.',
@@ -452,7 +452,7 @@ export const scenarios = [
   {
     id: 'request-flow',
     title: 'Multi-Region Request Flow: DNS → CDN → ALB → K8s → Pod',
-    difficulty: 'beginner',
+    difficulty: 'easy',
     tags: ['dns', 'cloudfront', 'alb', 'kubernetes', 'networking', 'aws'],
     estimatedMinutes: 10,
     description: 'Walk through the full lifecycle of an HTTPS request from a user\'s browser to a pod running in EKS, understanding each hop, what can fail, and how latency accumulates at each layer.',
@@ -542,7 +542,7 @@ export const scenarios = [
   {
     id: 'terragrunt-multiaccount',
     title: 'IaC Structure with Terragrunt Multi-Account',
-    difficulty: 'intermediate',
+    difficulty: 'normal',
     tags: ['terraform', 'terragrunt', 'aws', 'iac', 'cicd'],
     estimatedMinutes: 20,
     description: 'Design a Terragrunt repository layout that manages infrastructure across multiple AWS accounts and environments without copy-pasting backend config, provider blocks, or module sources.',
@@ -632,7 +632,7 @@ export const scenarios = [
   {
     id: 'zero-downtime-deploy',
     title: 'Zero-Downtime Deployment with Argo Rollouts',
-    difficulty: 'intermediate',
+    difficulty: 'normal',
     tags: ['argorollouts', 'kubernetes', 'canary', 'bluegreen', 'argocd', 'deployment'],
     estimatedMinutes: 15,
     description: 'Design a progressive delivery pipeline using Argo Rollouts that safely releases new versions via canary or blue-green strategies, with automated analysis and instant rollback on failure.',
