@@ -1,7 +1,17 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { categories, questions } from '../data/quizData';
+import { useScores } from '../../../shared/hooks/useScores';
 
-const colorMap = {
+const DIFFICULTIES = [
+  { id: 'all',    label: 'All',    color: 'var(--text-3)',   dim: 'transparent' },
+  { id: 'easy',   label: 'Easy',   color: 'var(--green)',    dim: 'var(--green-dim)'  },
+  { id: 'normal', label: 'Normal', color: 'var(--blue)',     dim: 'var(--blue-dim)'   },
+  { id: 'hard',   label: 'Hard',   color: 'var(--orange)',   dim: 'var(--orange-dim)' },
+  { id: 'expert', label: 'Expert', color: 'var(--purple)',   dim: 'var(--purple-dim)' },
+];
+
+const COLOR_MAP = {
   purple: { accent: 'var(--purple)', dim: 'var(--purple-dim)' },
   blue:   { accent: 'var(--blue)',   dim: 'var(--blue-dim)'   },
   orange: { accent: 'var(--orange)', dim: 'var(--orange-dim)' },
@@ -10,43 +20,69 @@ const colorMap = {
   yellow: { accent: 'var(--yellow)', dim: 'var(--yellow-dim)' },
 };
 
-function getDifficultyCounts(categoryId) {
-  const catQuestions = questions.filter(q => q.category === categoryId);
-  const counts = { beginner: 0, intermediate: 0, advanced: 0 };
-  catQuestions.forEach(q => {
-    if (counts[q.difficulty] !== undefined) counts[q.difficulty]++;
-  });
-  return { total: catQuestions.length, ...counts };
+function getDiffCounts(categoryId) {
+  const qs = questions.filter((q) => q.category === categoryId);
+  const counts = { easy: 0, normal: 0, hard: 0, expert: 0 };
+  qs.forEach((q) => { if (counts[q.difficulty] !== undefined) counts[q.difficulty]++; });
+  return { total: qs.length, ...counts };
 }
 
 export default function QuizHome() {
-  const totalQuestions = questions.length;
+  const [selectedDiff, setSelectedDiff] = useState('all');
+  const { getPersonalBest } = useScores();
 
-  const getBest = (catId) => {
-    try {
-      const raw = localStorage.getItem(`quiz_best_${catId}`);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  };
+  const totalQuestions = selectedDiff === 'all'
+    ? questions.length
+    : questions.filter((q) => q.difficulty === selectedDiff).length;
 
   return (
     <div>
+      {/* Header */}
       <div className="quiz-home-header">
-        <h1>DevOps Quiz</h1>
-        <p>Test your knowledge with real interview questions</p>
-        <span className="quiz-total-stat">{totalQuestions} questions</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1>DevOps Quiz</h1>
+            <p>Real interview questions across 6 domains</p>
+          </div>
+          <Link to="/quiz/leaderboard" className="btn-outline" style={{ marginTop: 6 }}>
+            🏆 Leaderboard
+          </Link>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span className="quiz-total-stat">{totalQuestions} questions</span>
+          {/* Difficulty filter */}
+          <div className="diff-filter-bar">
+            {DIFFICULTIES.map((d) => (
+              <button
+                key={d.id}
+                className={`diff-filter-btn${selectedDiff === d.id ? ' diff-filter-btn--active' : ''}`}
+                style={selectedDiff === d.id ? { color: d.color, background: d.dim, borderColor: d.color } : {}}
+                onClick={() => setSelectedDiff(d.id)}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
+      {/* Category grid */}
       <div className="quiz-grid">
-        {categories.map(cat => {
-          const colors = colorMap[cat.color] || colorMap.blue;
-          const diff = getDifficultyCounts(cat.id);
+        {categories.map((cat) => {
+          const colors = COLOR_MAP[cat.color] || COLOR_MAP.blue;
+          const diff = getDiffCounts(cat.id);
+          const count = selectedDiff === 'all' ? diff.total : diff[selectedDiff] || 0;
+          const best = getPersonalBest(cat.id, selectedDiff === 'all' ? null : selectedDiff);
+          const disabled = count === 0;
+          const startTo = selectedDiff === 'all'
+            ? `/quiz/${cat.id}`
+            : `/quiz/${cat.id}?difficulty=${selectedDiff}`;
 
           return (
             <div
               key={cat.id}
               className="quiz-cat-card"
-              style={{ '--cat-accent': colors.accent, '--cat-dim': colors.dim }}
+              style={{ '--cat-accent': colors.accent, '--cat-dim': colors.dim, opacity: disabled ? 0.45 : 1 }}
             >
               <div className="quiz-cat-card-header">
                 <span className="quiz-cat-icon">{cat.icon}</span>
@@ -55,26 +91,32 @@ export default function QuizHome() {
               <p className="quiz-cat-desc">{cat.description}</p>
               <div className="quiz-cat-meta">
                 <div>
-                  <span className="quiz-cat-count">{diff.total} questions</span>
-                  {(() => { const best = getBest(cat.id); return best ? (
-                    <div className="best-score-label">Best: <span>{best.score}/{best.total} ({best.pct}%)</span></div>
-                  ) : null; })()}
-                </div>
-                <div className="quiz-diff-pills">
-                  {diff.beginner > 0 && (
-                    <span className="diff-pill beginner">{diff.beginner} beginner</span>
-                  )}
-                  {diff.intermediate > 0 && (
-                    <span className="diff-pill intermediate">{diff.intermediate} intermediate</span>
-                  )}
-                  {diff.advanced > 0 && (
-                    <span className="diff-pill advanced">{diff.advanced} advanced</span>
+                  <span className="quiz-cat-count">
+                    {count} {count === 1 ? 'question' : 'questions'}
+                    {selectedDiff !== 'all' && ` · ${selectedDiff}`}
+                  </span>
+                  {best && (
+                    <div className="best-score-label">
+                      Best: <span>{best.score}/{best.total} ({best.pct}%)</span>
+                    </div>
                   )}
                 </div>
+                {selectedDiff === 'all' && (
+                  <div className="quiz-diff-pills">
+                    {diff.easy   > 0 && <span className="diff-pill easy">{diff.easy} easy</span>}
+                    {diff.normal > 0 && <span className="diff-pill normal">{diff.normal} normal</span>}
+                    {diff.hard   > 0 && <span className="diff-pill hard">{diff.hard} hard</span>}
+                    {diff.expert > 0 && <span className="diff-pill expert">{diff.expert} expert</span>}
+                  </div>
+                )}
               </div>
-              <Link to={`/quiz/${cat.id}`} className="quiz-start-btn">
-                Start <span>&rarr;</span>
-              </Link>
+              {disabled ? (
+                <span className="quiz-start-btn quiz-start-btn--disabled">No {selectedDiff} questions</span>
+              ) : (
+                <Link to={startTo} className="quiz-start-btn">
+                  Start <span>&rarr;</span>
+                </Link>
+              )}
             </div>
           );
         })}
