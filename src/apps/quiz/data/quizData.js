@@ -57,6 +57,12 @@ export const questions = [
     hint: 'Think about what DynamoDB does in the S3 backend configuration.',
     difficulty: 'normal',
     tags: ['state', 'locking', 's3', 'dynamodb'],
+    keyPoints: [
+      'DynamoDB is the lock table for S3 backends',
+      'Lock is acquired during plan and apply',
+      'Without locking: simultaneous applies corrupt state',
+      'Recovery: terraform import or manual state edit',
+    ],
   },
   {
     id: 'tf-002',
@@ -66,6 +72,11 @@ export const questions = [
     hint: 'Consider what gets written to the tfstate JSON file when you create an RDS instance with a master password.',
     difficulty: 'normal',
     tags: ['state', 'security', 'secrets'],
+    keyPoints: [
+      'State stores all resource attributes in plaintext',
+      'Mitigation 1: SSE-KMS encryption on S3 + IAM restrictions',
+      'Mitigation 2: store only a reference ID, not the secret value (Secrets Manager / Vault)',
+    ],
   },
   {
     id: 'tf-003',
@@ -75,6 +86,12 @@ export const questions = [
     hint: 'Think about state isolation and what happens when a developer forgets which workspace is active.',
     difficulty: 'hard',
     tags: ['workspaces', 'environments', 'state'],
+    keyPoints: [
+      'Workspaces: identical environments differing only by variable values',
+      'Directory-per-env: divergent resources or separate access controls',
+      'Workspace risk: all envs share same state bucket — IAM misconfiguration exposes prod',
+      'Workspace risk: wrong workspace selection before apply is a real incident pattern',
+    ],
   },
   {
     id: 'tf-004',
@@ -84,6 +101,11 @@ export const questions = [
     hint: 'Consider what semver means for Terraform module interfaces.',
     difficulty: 'normal',
     tags: ['modules', 'versioning', 'semver'],
+    keyPoints: [
+      'Adding a required variable is a breaking change',
+      'Should be released as v3.0.0 per semver',
+      'Alternative: add variable with a default to stay backward-compatible in 2.x',
+    ],
   },
   {
     id: 'tf-005',
@@ -93,6 +115,12 @@ export const questions = [
     hint: 'One approach is imperative and modifies state directly; the other is declarative and plan-visible.',
     difficulty: 'hard',
     tags: ['import', 'state', 'migration'],
+    keyPoints: [
+      'CLI import: imperative, modifies state directly, write config first',
+      'Import block (1.5+): declarative, visible in terraform plan, reviewable in PRs',
+      'Prefer import block for bulk imports and CI/CD pipelines',
+      'CLI import: one-off or pre-1.5',
+    ],
   },
   {
     id: 'tf-006',
@@ -102,6 +130,12 @@ export const questions = [
     hint: 'Think about what `terraform plan -detailed-exitcode` returns and how you would automate it.',
     difficulty: 'hard',
     tags: ['drift', 'ci-cd', 'automation'],
+    keyPoints: [
+      'terraform plan compares state to real infra via provider API',
+      'Limitation: only checks managed resources — new resources added outside TF are invisible',
+      'terraform plan -detailed-exitcode: exit 2 = drift detected',
+      'Run on a schedule (nightly cron) and alert on exit code 2',
+    ],
   },
   {
     id: 'tf-007',
@@ -111,6 +145,12 @@ export const questions = [
     hint: 'When does Terraform know about a dependency automatically vs. when do you have to tell it?',
     difficulty: 'easy',
     tags: ['dependencies', 'dag', 'depends_on'],
+    keyPoints: [
+      'Implicit: created by attribute references, Terraform builds a DAG automatically',
+      'depends_on: needed when dependency is not expressed via attribute reference',
+      'Example: IAM policy attachment must exist before app boots but ARN not referenced',
+      'Overusing depends_on forces serial execution — anti-pattern',
+    ],
   },
   {
     id: 'tf-008',
@@ -120,6 +160,12 @@ export const questions = [
     hint: 'Consider what happens to resource addresses when you remove the second item from a list of five.',
     difficulty: 'normal',
     tags: ['count', 'for_each', 'iteration'],
+    keyPoints: [
+      'count: numeric index — removing middle item shifts all subsequent indexes',
+      'for_each: uses map/set keys as stable identifiers',
+      'for_each: removing one item only affects that resource, not others',
+      'Use for_each whenever items have a meaningful identity',
+    ],
   },
   {
     id: 'tf-009',
@@ -129,6 +175,12 @@ export const questions = [
     hint: 'Think about who sets the value — the module consumer or the module author.',
     difficulty: 'easy',
     tags: ['locals', 'variables', 'modules'],
+    keyPoints: [
+      'Variables: input parameters set by caller, define module interface',
+      'Locals: computed values internal to module, cannot be set externally',
+      'Use locals for derived/concatenated values referenced in multiple places',
+      'Anti-pattern: variable for something that should never be overridden',
+    ],
   },
   {
     id: 'tf-010',
@@ -138,6 +190,12 @@ export const questions = [
     hint: 'There are two layers: the version constraint in HCL and the lock file that records exact versions.',
     difficulty: 'easy',
     tags: ['providers', 'versioning', 'lockfile'],
+    keyPoints: [
+      'Pin with ~> in required_providers block',
+      '.terraform.lock.hcl records exact version and hashes after terraform init',
+      'Commit lock file to version control',
+      'terraform init -upgrade to update the lock file',
+    ],
   },
 
   // =============================================
@@ -151,6 +209,12 @@ export const questions = [
     hint: 'QoS class depends on the relationship between requests and limits.',
     difficulty: 'normal',
     tags: ['qos', 'resources', 'eviction'],
+    keyPoints: [
+      'Burstable QoS: requests and limits set but not equal',
+      'Eviction order: BestEffort → Burstable → Guaranteed (last)',
+      'Exceeding request → prime eviction candidate among Burstable',
+      'Exceeding limit → kernel OOM kills immediately',
+    ],
   },
   {
     id: 'k8s-002',
@@ -160,6 +224,12 @@ export const questions = [
     hint: 'Consider what metric sources HPA supports natively vs. what KEDA brings.',
     difficulty: 'normal',
     tags: ['hpa', 'keda', 'autoscaling'],
+    keyPoints: [
+      'HPA natively supports CPU and memory only',
+      'Custom metrics need a metrics adapter (e.g., Prometheus Adapter)',
+      'KEDA: built-in scalers for SQS and 50+ sources, no adapter needed',
+      'KEDA scales to zero — HPA minimum is 1',
+    ],
   },
   {
     id: 'k8s-003',
@@ -169,6 +239,12 @@ export const questions = [
     hint: 'Role vs ClusterRole is the key namespace isolation decision.',
     difficulty: 'normal',
     tags: ['rbac', 'security', 'service-account'],
+    keyPoints: [
+      'ServiceAccount in the target namespace',
+      'Role (not ClusterRole) — namespace-scoped to prevent permission leak',
+      'RoleBinding to bind Role to ServiceAccount',
+      'No wildcards — enumerate exact verbs and resources needed',
+    ],
   },
   {
     id: 'k8s-004',
@@ -178,6 +254,12 @@ export const questions = [
     hint: 'This is a specific Kubernetes resource designed for voluntary disruption protection.',
     difficulty: 'normal',
     tags: ['pdb', 'availability', 'disruptions'],
+    keyPoints: [
+      'PodDisruptionBudget (PDB) with minAvailable: 80% or maxUnavailable: 20%',
+      'Eviction API respects PDB during voluntary disruptions (node drain, CA scale-down)',
+      'Does NOT protect against involuntary disruptions (node crash, OOM)',
+      '100% minAvailable with 2 replicas → node drain hangs indefinitely',
+    ],
   },
   {
     id: 'k8s-005',
@@ -187,6 +269,12 @@ export const questions = [
     hint: 'Each probe type has a different consequence for failure — traffic removal, restart, or boot protection.',
     difficulty: 'normal',
     tags: ['probes', 'health-checks', 'troubleshooting'],
+    keyPoints: [
+      'Readiness failure: removes pod from Service endpoints, no restart',
+      'Liveness failure: kubelet restarts the container',
+      'Startup probe: disables liveness/readiness until app boots',
+      'Low liveness timeout on slow app → CrashLoopBackOff',
+    ],
   },
   {
     id: 'k8s-006',
@@ -196,6 +284,12 @@ export const questions = [
     hint: 'One constrains which nodes, one adds expressive preferences, one permits tainted nodes.',
     difficulty: 'hard',
     tags: ['scheduling', 'affinity', 'taints', 'tolerations'],
+    keyPoints: [
+      'nodeSelector: simple key-value constraint',
+      'Node affinity: expressive operators, soft (preferred) and hard (required) variants',
+      'Tolerations: allow scheduling on tainted nodes',
+      'Taints + tolerations control admission; affinity/nodeSelector control attraction',
+    ],
   },
   {
     id: 'k8s-007',
@@ -205,6 +299,12 @@ export const questions = [
     hint: 'Base64 encoding is not encryption.',
     difficulty: 'easy',
     tags: ['configmap', 'secrets', 'security'],
+    keyPoints: [
+      'Secrets are base64-encoded, NOT encrypted by default',
+      'Anyone with RBAC read access can decode them trivially',
+      'Fix: EncryptionConfiguration with KMS for encryption at rest',
+      'Better: use ESO to pull secrets from Vault/Secrets Manager at runtime',
+    ],
   },
   {
     id: 'k8s-008',
@@ -214,6 +314,12 @@ export const questions = [
     hint: 'Think about which controller guarantees one pod per node.',
     difficulty: 'easy',
     tags: ['deployment', 'statefulset', 'daemonset', 'workloads'],
+    keyPoints: [
+      'Deployment: stateless, interchangeable pods',
+      'StatefulSet: stable network identity, ordered scaling, PVC per pod',
+      'DaemonSet: exactly one pod per node',
+      'Logging agent → DaemonSet (auto-adds/removes on node join/drain)',
+    ],
   },
   {
     id: 'k8s-009',
@@ -223,6 +329,12 @@ export const questions = [
     hint: 'An empty podSelector matches everything; empty rules deny everything.',
     difficulty: 'hard',
     tags: ['network-policy', 'security', 'zero-trust'],
+    keyPoints: [
+      'podSelector: {} matches all pods in namespace',
+      'policyTypes: Ingress + Egress with no rules = deny all',
+      'NetworkPolicies are additive — additional policies open specific paths',
+      'Requires CNI that enforces NetworkPolicy (Calico, Cilium — not default kubenet)',
+    ],
   },
   {
     id: 'k8s-010',
@@ -232,6 +344,12 @@ export const questions = [
     hint: 'QoS class is the primary sort key, then actual usage vs. request ratio.',
     difficulty: 'hard',
     tags: ['eviction', 'qos', 'scheduling'],
+    keyPoints: [
+      'Eviction order: BestEffort → Burstable → Guaranteed',
+      'Within Burstable: sorted by excess usage over request',
+      'Accurate requests are critical — under-requesting makes you a prime eviction target',
+      'PriorityClass also factors in within same QoS class',
+    ],
   },
   {
     id: 'k8s-011',
@@ -241,6 +359,12 @@ export const questions = [
     hint: 'Start with describe, then previous logs, then check events for the root cause.',
     difficulty: 'easy',
     tags: ['troubleshooting', 'crashloop', 'debugging'],
+    keyPoints: [
+      'kubectl describe pod: check Events for OOMKilled, image pull, mount errors',
+      'kubectl logs --previous: last container output before crash',
+      'Empty logs = process crashes before writing output',
+      'Delete pod to reset exponential backoff timer',
+    ],
   },
   {
     id: 'k8s-012',
@@ -250,6 +374,12 @@ export const questions = [
     hint: 'One kills the process; the other slows it down.',
     difficulty: 'normal',
     tags: ['oomkilled', 'throttling', 'resources', 'troubleshooting'],
+    keyPoints: [
+      'OOMKilled: exceeded memory limit, process killed (exit code 137)',
+      'CPU throttling: container slowed by CFS scheduler, stays running',
+      'Detect throttling: container_cpu_cfs_throttled_periods_total metric',
+      'Recommendation: set CPU requests but not CPU limits to avoid throttling',
+    ],
   },
   {
     id: 'k8s-013',
@@ -259,6 +389,12 @@ export const questions = [
     hint: 'Namespaces are a soft boundary, not a security boundary, unless you add policies.',
     difficulty: 'normal',
     tags: ['namespaces', 'isolation', 'multi-tenancy'],
+    keyPoints: [
+      'Namespaces DO isolate: names, RBAC roles, resource quotas',
+      'Namespaces do NOT isolate: network traffic (pods can talk cross-namespace)',
+      'Namespaces do NOT isolate: node resources or cluster-scoped resources',
+      'True multi-tenancy needs NetworkPolicies + ResourceQuotas (or separate clusters)',
+    ],
   },
   {
     id: 'k8s-014',
@@ -268,6 +404,12 @@ export const questions = [
     hint: 'Think about the granularity: per-node vs. per-pod IAM permissions.',
     difficulty: 'hard',
     tags: ['irsa', 'iam', 'eks', 'security'],
+    keyPoints: [
+      'IRSA uses OIDC provider registered with IAM',
+      'ServiceAccount annotated with role ARN; webhook injects token + env vars',
+      'SDK exchanges OIDC token for temporary scoped IAM credentials',
+      'Node role: all pods on node share same permissions — violates least privilege',
+    ],
   },
   {
     id: 'k8s-015',
@@ -277,6 +419,12 @@ export const questions = [
     hint: 'When would running old and new versions simultaneously cause problems?',
     difficulty: 'easy',
     tags: ['deployment', 'strategy', 'rolling-update'],
+    keyPoints: [
+      'RollingUpdate: gradual replacement, zero-downtime, maxSurge/maxUnavailable',
+      'Recreate: kills all old pods first — causes downtime',
+      'Use Recreate when two versions cannot run simultaneously',
+      'Examples: DB migration runner, exclusive RWO volume, data-corrupting legacy app',
+    ],
   },
 
   // =============================================
@@ -290,6 +438,12 @@ export const questions = [
     hint: 'Think about the tradeoff between operational control and management overhead.',
     difficulty: 'normal',
     tags: ['node-groups', 'fargate', 'eks'],
+    keyPoints: [
+      'Managed node groups: AWS handles AMI, provisioning, draining',
+      'Self-managed: full AMI control, needed for custom/GPU/Windows nodes',
+      'Fargate: no node management, but no DaemonSets, no EBS',
+      'Fargate: higher per-pod cost and slower pod startup',
+    ],
   },
   {
     id: 'eks-002',
@@ -299,6 +453,12 @@ export const questions = [
     hint: 'One works through ASGs; the other provisions EC2 instances directly.',
     difficulty: 'normal',
     tags: ['karpenter', 'cluster-autoscaler', 'scaling'],
+    keyPoints: [
+      'CA: works through ASGs, adjusts desired count of pre-defined node groups',
+      'Karpenter: provisions EC2 directly via EC2 Fleet API, no ASGs needed',
+      'Karpenter: faster (30-60s vs minutes), consolidation support',
+      'Karpenter: better spot diversification across instance types',
+    ],
   },
   {
     id: 'eks-003',
@@ -308,6 +468,12 @@ export const questions = [
     hint: 'One is a Kubernetes resource inside the cluster; the other is an AWS API resource outside it.',
     difficulty: 'hard',
     tags: ['aws-auth', 'access-entries', 'iam', 'security'],
+    keyPoints: [
+      'aws-auth: ConfigMap in kube-system, inside cluster — delete it and lose all access',
+      'Access Entries: managed via EKS API, outside the cluster',
+      'Access Entries: manageable via Terraform, auditable via CloudTrail',
+      'Access Entries preferred: no single-point-of-failure ConfigMap risk',
+    ],
   },
   {
     id: 'eks-004',
@@ -317,6 +483,12 @@ export const questions = [
     hint: 'Think about what happens to manual changes when AWS reconciles the add-on.',
     difficulty: 'hard',
     tags: ['add-ons', 'coredns', 'upgrades'],
+    keyPoints: [
+      'Managed add-ons can overwrite manually customized configurations',
+      'Use configurationValues field to pass customizations through the add-on API',
+      'Check compatibility matrix before upgrading add-ons',
+      'PRESERVE conflict resolution strategy retains custom settings',
+    ],
   },
   {
     id: 'eks-005',
@@ -326,6 +498,12 @@ export const questions = [
     hint: 'Each pod gets a real VPC IP — what happens when the subnet CIDR is too small?',
     difficulty: 'expert',
     tags: ['vpc-cni', 'networking', 'ip-exhaustion'],
+    keyPoints: [
+      'VPC CNI assigns real VPC IPs to pods — subnet exhaustion = pods stuck in ContainerCreating',
+      'Fix 1: use larger subnets (/19 or /18)',
+      'Fix 2: enable prefix delegation (ENABLE_PREFIX_DELEGATION=true) — 16x more IPs per ENI',
+      'Fix 3: secondary CIDR ranges (100.64.0.0/16) for pod networking',
+    ],
   },
   {
     id: 'eks-006',
@@ -335,6 +513,12 @@ export const questions = [
     hint: 'Consider what happens when any pod on a node can reach the metadata service.',
     difficulty: 'normal',
     tags: ['irsa', 'iam', 'security', 'metadata'],
+    keyPoints: [
+      'Node IAM: all pods can hit instance metadata (169.254.169.254) and get node credentials',
+      'Compromised pod can escalate via node role (ECR, CloudWatch, etc.)',
+      'IRSA: credentials scoped to individual ServiceAccount, not accessible across namespaces',
+      'Mitigate further: enforce IMDSv2 with hop limit 1 to block pods from metadata service',
+    ],
   },
   {
     id: 'eks-007',
@@ -344,6 +528,12 @@ export const questions = [
     hint: 'Five log types — which ones are essential for security vs. debugging?',
     difficulty: 'normal',
     tags: ['logging', 'cloudwatch', 'security', 'troubleshooting'],
+    keyPoints: [
+      'Five types: api, audit, authenticator, controllerManager, scheduler',
+      'Always enable audit: records every API call with user identity',
+      'Authenticator: debug RBAC/IAM 403 issues',
+      'Set retention policies — expensive at scale',
+    ],
   },
   {
     id: 'eks-008',
@@ -353,6 +543,12 @@ export const questions = [
     hint: 'Layer 7 vs Layer 4 — what routing capabilities do you need?',
     difficulty: 'normal',
     tags: ['alb', 'nlb', 'ingress', 'networking'],
+    keyPoints: [
+      'ALB: Layer 7 — path/host routing, WAF, HTTP/2, single LB for many services',
+      'NLB: Layer 4 — TCP/UDP, static IPs, TLS passthrough, lower latency',
+      'Use ALB for HTTP microservices with routing rules',
+      'Use NLB for gRPC, non-HTTP, static IPs, or ultra-low latency',
+    ],
   },
   {
     id: 'eks-009',
@@ -362,6 +558,12 @@ export const questions = [
     hint: 'Control plane first, then add-ons, then nodes — never the reverse.',
     difficulty: 'hard',
     tags: ['upgrades', 'version', 'lifecycle'],
+    keyPoints: [
+      'Order: control plane → add-ons → node groups',
+      'Control plane upgrade is non-disruptive (AWS runs in-place)',
+      'Deprecated API versions in manifests will break after upgrade',
+      'PDBs can block node drains during node group upgrade',
+    ],
   },
   {
     id: 'eks-010',
@@ -371,6 +573,12 @@ export const questions = [
     hint: 'Combine IAM cross-account role assumption with Kubernetes RBAC mapping.',
     difficulty: 'hard',
     tags: ['cross-account', 'iam', 'rbac'],
+    keyPoints: [
+      'IAM role in Account A with trust policy allowing Account B role to assume it',
+      'Map the role to a K8s RBAC group via aws-auth or Access Entry',
+      'SRE assumes role with aws sts assume-role',
+      'aws eks update-kubeconfig --role-arn for kubeconfig setup',
+    ],
   },
 
   // =============================================
@@ -384,6 +592,12 @@ export const questions = [
     hint: 'Think about resources that must exist before other resources can start successfully.',
     difficulty: 'normal',
     tags: ['argocd', 'sync-waves', 'ordering'],
+    keyPoints: [
+      'Annotation: argocd.argoproj.io/sync-wave — lower number applied first',
+      'ArgoCD waits for each wave to be healthy before proceeding',
+      'Without waves: all resources applied simultaneously — race conditions',
+      'Example order: Namespace → ConfigMaps/Secrets → Database → App Deployment',
+    ],
   },
   {
     id: 'cicd-002',
@@ -393,6 +607,12 @@ export const questions = [
     hint: 'One Application that manages other Applications — a recursive pattern.',
     difficulty: 'normal',
     tags: ['argocd', 'app-of-apps', 'patterns'],
+    keyPoints: [
+      'Root Application points to Git directory with child Application manifests',
+      'Solves bootstrapping: one root app creates all others declaratively',
+      'Risk: cascade delete of root app deletes all children and their resources',
+      'Complex dependency tree — hard to debug sync failures',
+    ],
   },
   {
     id: 'cicd-003',
@@ -402,6 +622,12 @@ export const questions = [
     hint: 'One requires writing each Application manifest; the other generates them from a template.',
     difficulty: 'hard',
     tags: ['argocd', 'applicationsets', 'multi-cluster'],
+    keyPoints: [
+      'ApplicationSets generate multiple Applications from a template + generator',
+      'App of Apps: write each Application manifest manually',
+      'ApplicationSets: DRY, scale to many clusters without manual manifests',
+      'Git generator: auto-discovers directories, creates one App per directory',
+    ],
   },
   {
     id: 'cicd-004',
@@ -411,6 +637,12 @@ export const questions = [
     hint: 'One encrypts secrets into Git; the other references secrets from an external store.',
     difficulty: 'normal',
     tags: ['secrets', 'eso', 'sealed-secrets', 'gitops'],
+    keyPoints: [
+      'Sealed Secrets: encrypted by kubeseal, stored in Git, decrypted in-cluster',
+      'ESO: syncs from external store (Secrets Manager, Vault) into K8s Secrets',
+      'ESO: single source of truth, rotation happens externally',
+      'Sealed Secrets: simpler, everything in Git, no external store needed',
+    ],
   },
   {
     id: 'cicd-005',
@@ -420,6 +652,12 @@ export const questions = [
     hint: 'What happens when the cluster state diverges from what Git declares?',
     difficulty: 'easy',
     tags: ['gitops', 'drift', 'argocd', 'self-heal'],
+    keyPoints: [
+      'Git is single source of truth — cluster state must match Git',
+      'kubectl edit drift detected on next sync cycle (default 3 minutes)',
+      'Auto-sync enabled: ArgoCD reverts manual changes',
+      'self-heal: true ensures drift is always corrected automatically',
+    ],
   },
   {
     id: 'cicd-006',
@@ -429,6 +667,12 @@ export const questions = [
     hint: 'Consider scoping levels and what happens when a secret value appears in a log.',
     difficulty: 'normal',
     tags: ['github-actions', 'secrets', 'security'],
+    keyPoints: [
+      'Scoped to: organization, repository, or environment level',
+      'Environment secrets need approval rules (gate for prod secrets)',
+      'Never echo secrets in logs — derived values (base64, concatenated) bypass masking',
+      'Use OIDC federation instead of long-lived IAM keys',
+    ],
   },
   {
     id: 'cicd-007',
@@ -438,6 +682,12 @@ export const questions = [
     hint: 'One shifts traffic gradually with analysis; the other swaps all traffic at once.',
     difficulty: 'normal',
     tags: ['argo-rollouts', 'canary', 'blue-green', 'deployment'],
+    keyPoints: [
+      'Blue-green: two full environments, instant traffic switch and rollback',
+      'Canary: gradual traffic shift (5% → 25% → 100%) with analysis gates',
+      'Blue-green: instant rollback, double infrastructure cost',
+      'Canary: limits blast radius, requires running two versions simultaneously',
+    ],
   },
   {
     id: 'cicd-008',
@@ -447,6 +697,12 @@ export const questions = [
     hint: 'Sync status is about Git match; health status is about runtime condition.',
     difficulty: 'normal',
     tags: ['argocd', 'drift', 'health', 'sync'],
+    keyPoints: [
+      'ArgoCD compares live state to Git every 3 minutes (default)',
+      'OutOfSync: live state differs from Git',
+      'Degraded: matches Git but unhealthy runtime (CrashLoopBackOff, unavailable replicas)',
+      'Can be Synced + Degraded or OutOfSync + Healthy simultaneously',
+    ],
   },
   {
     id: 'cicd-009',
@@ -456,6 +712,12 @@ export const questions = [
     hint: 'Hub-spoke (centralized) vs. decentralized — what are the tradeoffs?',
     difficulty: 'expert',
     tags: ['argocd', 'multi-cluster', 'architecture'],
+    keyPoints: [
+      'Register clusters via argocd cluster add',
+      'Hub-spoke: one ArgoCD on management cluster deploying to all targets',
+      'Decentralized: separate ArgoCD per cluster, meta ArgoCD manages them',
+      'Hub-spoke: simpler but single point of failure; decentralized: resilient but complex',
+    ],
   },
   {
     id: 'cicd-010',
@@ -465,6 +727,12 @@ export const questions = [
     hint: 'Think about where cluster credentials live in each model.',
     difficulty: 'normal',
     tags: ['gitops', 'ci-cd', 'security', 'push-vs-pull'],
+    keyPoints: [
+      'Push-based: CI holds cluster credentials — compromised CI = cluster access',
+      'Pull-based: agent in cluster pulls from Git, no external system needs credentials',
+      'Pull-based: automatic drift correction, Git is the only interface',
+      'Push-based: simpler, immediate feedback; Pull: eventual consistency (sync delay)',
+    ],
   },
 
   // =============================================
@@ -478,6 +746,12 @@ export const questions = [
     hint: 'Think about blast radius isolation and what resources should be shared vs. separated.',
     difficulty: 'expert',
     tags: ['multi-account', 'aws-organizations', 'scp'],
+    keyPoints: [
+      'Management/root: billing and org policies only — no workloads',
+      'Separate accounts: shared-services, networking/transit, security/audit',
+      'Per-team dev/staging/prod accounts (15 for 5 teams × 3 envs)',
+      'SCPs for guardrails; blast radius isolation between teams',
+    ],
   },
   {
     id: 'arch-002',
@@ -487,6 +761,12 @@ export const questions = [
     hint: 'You cannot deploy a breaking schema change and new code at the same time in a rolling update.',
     difficulty: 'expert',
     tags: ['zero-downtime', 'database', 'migrations', 'deployment'],
+    keyPoints: [
+      'Expand-contract (parallel change) pattern',
+      'Phase 1: add column as nullable, write to it without requiring it',
+      'Phase 2: backfill existing rows',
+      'Phase 3: add NOT NULL constraint, remove old column reads',
+    ],
   },
   {
     id: 'arch-003',
@@ -496,6 +776,12 @@ export const questions = [
     hint: 'Two passwords must be valid simultaneously during the transition window.',
     difficulty: 'expert',
     tags: ['secrets', 'rotation', 'zero-downtime', 'eso'],
+    keyPoints: [
+      'Secrets Manager dual-user strategy: AWSCURRENT + AWSPREVIOUS both valid',
+      'ESO polls Secrets Manager and updates K8s Secret on refresh interval',
+      'Services must reload credentials when Secret changes (watch or sidecar)',
+      'Keep old password valid until all pods have refreshed their credentials',
+    ],
   },
   {
     id: 'arch-004',
@@ -505,6 +791,12 @@ export const questions = [
     hint: 'Control plane, node placement, pod distribution, and storage all need AZ awareness.',
     difficulty: 'hard',
     tags: ['high-availability', 'multi-az', 'eks', 'topology'],
+    keyPoints: [
+      'Node groups in 3+ AZs with subnets in each',
+      'PodTopologySpreadConstraints to spread replicas across AZs',
+      'PodDisruptionBudgets to prevent simultaneous eviction',
+      'EBS is AZ-bound — StatefulSets cannot failover without data replication; use EFS for multi-AZ',
+    ],
   },
   {
     id: 'arch-005',
@@ -514,6 +806,12 @@ export const questions = [
     hint: 'Spot, right-sizing, consolidation, and Graviton are the biggest levers.',
     difficulty: 'normal',
     tags: ['cost', 'optimization', 'karpenter', 'spot'],
+    keyPoints: [
+      'Karpenter consolidation: replaces underutilized nodes with smaller ones',
+      'Spot instances for stateless workloads (diversify instance families)',
+      'Right-size requests with VPA or metrics — over-requesting wastes capacity',
+      'Graviton instances: 20-40% cost savings for compatible workloads',
+    ],
   },
   {
     id: 'arch-006',
@@ -523,6 +821,12 @@ export const questions = [
     hint: 'Think about directory hierarchy that encodes account, region, and environment.',
     difficulty: 'expert',
     tags: ['terragrunt', 'multi-account', 'terraform', 'structure'],
+    keyPoints: [
+      'Directory structure: live/{account}/{region}/{env}/{component}/terragrunt.hcl',
+      'Each account has its own state bucket',
+      'Shared modules in separate repo with semantic versioning',
+      'include blocks for DRY config, dependency blocks to pass outputs between components',
+    ],
   },
   {
     id: 'arch-007',
@@ -532,6 +836,12 @@ export const questions = [
     hint: 'Design for someone who is stressed at 3am — not for someone reading documentation casually.',
     difficulty: 'normal',
     tags: ['incident-response', 'runbooks', 'sre'],
+    keyPoints: [
+      'Symptom-based entry points (not linear) — "pods not scheduling", "node NotReady"',
+      'Exact copy-paste commands for diagnosis',
+      'Escalation matrix and decision trees',
+      'Design for 3am stress: short sentences, numbered steps, no walls of text',
+    ],
   },
   {
     id: 'arch-008',
@@ -541,6 +851,12 @@ export const questions = [
     hint: 'What specific problems does a mesh solve that you cannot solve with simpler tools?',
     difficulty: 'hard',
     tags: ['service-mesh', 'istio', 'architecture'],
+    keyPoints: [
+      'Use mesh for: mTLS without app changes, header-based routing, tracing injection, circuit breaking',
+      'Over-engineering: < 10 services, team lacks operational expertise',
+      'Istio: complex, heavy sidecar overhead; Linkerd: lighter but fewer features',
+      'Check if NetworkPolicies + Argo Rollouts solve your problem first',
+    ],
   },
   {
     id: 'arch-009',
@@ -550,6 +866,12 @@ export const questions = [
     hint: 'The namespace is usually the boundary — platform below, product above.',
     difficulty: 'normal',
     tags: ['platform-engineering', 'ownership', 'organization'],
+    keyPoints: [
+      'Platform: cluster infra, networking, add-ons, RBAC, namespace provisioning',
+      'Product: Deployments, Helm values, HPA, resource requests',
+      'Namespace is the boundary — platform provisions it with quotas + network policies',
+      'Platform provides self-service tooling, not a ticket queue',
+    ],
   },
   {
     id: 'arch-010',
@@ -559,6 +881,12 @@ export const questions = [
     hint: 'Think about a testing pyramid: fast static checks at the base, slow integration tests at the top.',
     difficulty: 'hard',
     tags: ['testing', 'iac', 'terratest', 'policy'],
+    keyPoints: [
+      'L1 — Static: terraform validate, tflint, checkov/tfsec',
+      'L2 — Unit: Terratest or plan assertions (no apply needed)',
+      'L3 — Integration: apply to ephemeral env, assert, destroy',
+      'L4 — Policy as code: OPA/Rego or Sentinel as CI gate',
+    ],
   },
 
   // =============================================
@@ -572,6 +900,12 @@ export const questions = [
     hint: 'One is for services (user-facing); the other is for resources (infrastructure).',
     difficulty: 'normal',
     tags: ['red', 'use', 'monitoring', 'methodology'],
+    keyPoints: [
+      'RED: Rate, Errors, Duration — for request-driven services',
+      'USE: Utilization, Saturation, Errors — for infrastructure resources',
+      'RED for API/web services; USE for nodes, databases, network',
+      'Need both: RED for app layer, USE for infra layer',
+    ],
   },
   {
     id: 'obs-002',
@@ -581,6 +915,12 @@ export const questions = [
     hint: 'Recording rules trade storage for query speed by pre-computing results.',
     difficulty: 'normal',
     tags: ['prometheus', 'recording-rules', 'alerting', 'performance'],
+    keyPoints: [
+      'Recording rules: pre-compute expensive PromQL on a schedule, stored as time series',
+      'Alerting rules: fire when expression condition is met',
+      'Recording rules make dashboard queries instant instead of recomputing each load',
+      'Enable efficient SLI metrics that alerting rules can reference',
+    ],
   },
   {
     id: 'obs-003',
@@ -590,6 +930,12 @@ export const questions = [
     hint: 'Every unique label combination creates a new time series in memory.',
     difficulty: 'expert',
     tags: ['prometheus', 'cardinality', 'performance', 'troubleshooting'],
+    keyPoints: [
+      'Cardinality = number of unique time series = unique label value combinations',
+      'High cardinality → OOM kills on Prometheus server',
+      'Common culprits: user IDs, request IDs, unbounded label values',
+      'Fix: remove high-cardinality labels, use relabel_configs to drop/bucket before ingestion',
+    ],
   },
   {
     id: 'obs-004',
@@ -599,6 +945,12 @@ export const questions = [
     hint: 'The question is whether you decide to sample at the beginning or end of a trace.',
     difficulty: 'hard',
     tags: ['tracing', 'sampling', 'opentelemetry'],
+    keyPoints: [
+      'Head-based: decide at trace start — simple but may miss rare errors',
+      'Tail-based: decide after trace completes — keeps all errors and slow traces',
+      'Tail-based needs collector with buffer memory (OTel Collector + tail_sampling)',
+      'Practical: 100% for errors + p99 violations, 1-5% for normal traffic',
+    ],
   },
   {
     id: 'obs-005',
@@ -608,5 +960,11 @@ export const questions = [
     hint: 'Indicator is what you measure, Objective is what you target, Agreement is what you promise externally.',
     difficulty: 'easy',
     tags: ['sli', 'slo', 'sla', 'sre'],
+    keyPoints: [
+      'SLI: the measurement (e.g., % of requests < 300ms)',
+      'SLO: internal target (e.g., 99.9% over 30-day window)',
+      'SLA: external contract with consequences (e.g., 99.5% with credit on breach)',
+      'SLO stricter than SLA → error budget buffer',
+    ],
   },
 ];

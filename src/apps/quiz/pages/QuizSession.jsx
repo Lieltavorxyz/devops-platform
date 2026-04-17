@@ -272,6 +272,7 @@ export default function QuizSession() {
         revealed={revealed}
         writtenAnswer={writtenAnswer}
         categoryColor={category.color}
+        keyPoints={current.keyPoints || []}
       />
 
       {/* Answer area / rate buttons */}
