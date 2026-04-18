@@ -79,12 +79,28 @@ TopBar must:
 ### Skill: difficulty-ui
 **Triggered when:** Phase 2 — difficulty picker + badges
 Difficulty visual spec:
-- Easy: `--easy` green, filled badge
-- Normal: `--normal` blue, filled badge
-- Hard: `--hard` yellow, filled badge
-- Expert: `--expert` red, filled badge
-- Picker: 4-button segmented control on Quiz home
-- After selection: badge persists in TopBar or quiz header throughout session
+- Easy: `--green`, badge `.diff-pill.easy`
+- Normal: `--blue`, badge `.diff-pill.normal`
+- Hard: `--orange`, badge `.diff-pill.hard`
+- Expert: `--purple`, badge `.diff-pill.expert`
+- Picker: pill-button filter bar on Quiz home (`diff-filter-bar`)
+- After selection: difficulty shown in session header with matching color
+
+### Skill: quiz-session-ui
+**Triggered when:** Quiz session redesign or new quiz flow
+Quiz flow (current spec — unified single mode):
+1. **Question card** (`.quiz-card`): prominent, `border-top: 2px solid var(--cat-color)`, 21px question text
+2. **Answer area** (`.quiz-answer-area`): always visible below card
+   - Textarea (`.quiz-textarea`): optional, placeholder "Type your answer… or flip to see it directly"
+   - Two buttons row (right-aligned):
+     - "Flip to see answer" (`.btn-flip-skip`): outline, works with empty textarea
+     - "Reveal answer →" (`.btn-reveal-answer`): blue CTA, disabled when textarea empty
+3. **Revealed card** (`.quiz-card--revealed`): green top border, shows question (small) + split view
+   - Left col (`.quiz-reveal-col--yours`): surface-2 bg, "Your answer" or italic "Chose to flip"
+   - Right col (`.quiz-reveal-col--correct`): green tint bg + border, "Answer" label in green
+4. **Rate buttons** (`.quiz-rate-btns`): "✗ Missed it" (red-dim) | "✓ Got it" (green-dim), full width
+- NO mode toggle — write area is always shown, flip button skips it
+- Mobile: split view stacks vertically at ≤560px
 
 ### Skill: excalidraw-reveal-ui
 **Triggered when:** Phase 3 — architecture quiz reveal flow

@@ -1,6 +1,5 @@
-import { lazy, Suspense, useState, useCallback } from 'react';
+import { lazy, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 
-// Lazy load the actual Excalidraw component
 const ExcalidrawComponent = lazy(() =>
   import('@excalidraw/excalidraw').then(mod => ({ default: mod.Excalidraw }))
 );
@@ -8,7 +7,6 @@ const ExcalidrawComponent = lazy(() =>
 export default function DiagramCanvas({ scenarioId }) {
   const storageKey = `arch_diagram_${scenarioId}`;
 
-  // Load saved elements from localStorage
   const loadSaved = () => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -17,16 +15,25 @@ export default function DiagramCanvas({ scenarioId }) {
   };
 
   const [savedData] = useState(loadSaved);
+  const pendingRef = useRef(null);
+  const timerRef = useRef(null);
 
-  const handleChange = useCallback((elements, appState) => {
-    // Save on every change (debounce would be ideal but keep it simple)
-    try {
-      // Only save non-empty canvases
-      if (elements && elements.length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify(elements));
-      }
-    } catch {}
+  // Auto-save every 10s (debounced — resets on each change)
+  const handleChange = useCallback((elements) => {
+    if (!elements || elements.length === 0) return;
+    pendingRef.current = elements;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(pendingRef.current));
+      } catch {}
+    }, 10000);
   }, [storageKey]);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
 
   return (
     <div className="diagram-canvas-wrap">

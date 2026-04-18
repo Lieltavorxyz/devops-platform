@@ -1,5 +1,12 @@
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import {
+  Home as HomeIcon, Layers, FolderTree, Ship, Layout, Package, Cpu,
+  GitPullRequest, GitMerge, Network, Cloud, Shield,
+  ArrowRightLeft, Microscope, KeyRound, BarChart2,
+  Workflow, Box, TrendingDown, AlertTriangle, Target,
+  Terminal, Globe, Search,
+} from 'lucide-react';
 import { URLS } from '../../config';
 import './styles/index.css';
 import Home from './pages/Home';
@@ -22,61 +29,57 @@ import Incident from './pages/Incident';
 import Sre from './pages/Sre';
 import Linux from './pages/Linux';
 import Networking from './pages/Networking';
-import MyNotes from './pages/MyNotes';
 import RequestFlow from './pages/RequestFlow';
 import EksInternals from './pages/EksInternals';
 import Secrets from './pages/Secrets';
-import SystemDesign from './pages/SystemDesign';
 
 const NAV = [
-  { group: 'Overview', items: [{ path: '/knowledge', label: 'Home', icon: '\uD83C\uDFE0' }] },
+  { group: 'Overview', items: [
+    { path: '/knowledge', label: 'Home', Icon: HomeIcon },
+  ]},
   { group: 'Infrastructure as Code', items: [
-    { path: '/knowledge/terraform', label: 'Terraform', icon: '\uD83C\uDFD7\uFE0F', badge: 'Core' },
-    { path: '/knowledge/terragrunt', label: 'Terragrunt', icon: '\uD83C\uDF3F', badge: 'Core' },
+    { path: '/knowledge/terraform',  label: 'Terraform',  Icon: Layers,    badge: 'Core' },
+    { path: '/knowledge/terragrunt', label: 'Terragrunt', Icon: FolderTree, badge: 'Core' },
   ]},
   { group: 'Kubernetes', items: [
-    { path: '/knowledge/k8s-core', label: 'Core Concepts', icon: '\u2638\uFE0F', badge: 'Core' },
-    { path: '/knowledge/k8s-patterns', label: 'Patterns & Design', icon: '\uD83D\uDCD0' },
-    { path: '/knowledge/helm', label: 'Helm', icon: '\u26F5' },
-    { path: '/knowledge/karpenter', label: 'Karpenter', icon: '\uD83C\uDFAF' },
+    { path: '/knowledge/k8s-core',     label: 'Core Concepts',   Icon: Ship,    badge: 'Core' },
+    { path: '/knowledge/k8s-patterns', label: 'Patterns & Design', Icon: Layout },
+    { path: '/knowledge/helm',         label: 'Helm',            Icon: Package },
+    { path: '/knowledge/karpenter',    label: 'Karpenter',       Icon: Cpu },
   ]},
   { group: 'GitOps', items: [
-    { path: '/knowledge/argocd', label: 'ArgoCD', icon: '\uD83D\uDC19', badge: 'Core' },
-    { path: '/knowledge/argo-rollouts', label: 'Argo Rollouts', icon: '\uD83D\uDE80' },
+    { path: '/knowledge/argocd',        label: 'ArgoCD',        Icon: GitPullRequest, badge: 'Core' },
+    { path: '/knowledge/argo-rollouts', label: 'Argo Rollouts', Icon: GitMerge },
   ]},
   { group: 'AWS', items: [
-    { path: '/knowledge/aws-networking', label: 'Networking', icon: '\uD83C\uDF10', badge: 'Core' },
-    { path: '/knowledge/aws-eks', label: 'EKS', icon: '\uD83D\uDEA2' },
-    { path: '/knowledge/aws-iam', label: 'IAM & Security', icon: '\uD83D\uDD10' },
+    { path: '/knowledge/aws-networking', label: 'Networking',    Icon: Network, badge: 'Core' },
+    { path: '/knowledge/aws-eks',        label: 'EKS',           Icon: Cloud },
+    { path: '/knowledge/aws-iam',        label: 'IAM & Security', Icon: Shield },
   ]},
   { group: 'System Internals', items: [
-    { path: '/knowledge/request-flow', label: 'Request Flow', icon: '\uD83D\uDD01' },
-    { path: '/knowledge/eks-internals', label: 'EKS Internals', icon: '\uD83D\uDD2C' },
+    { path: '/knowledge/request-flow',   label: 'Request Flow',  Icon: ArrowRightLeft },
+    { path: '/knowledge/eks-internals',  label: 'EKS Internals', Icon: Microscope },
   ]},
   { group: 'Security', items: [
-    { path: '/knowledge/secrets', label: 'Secrets Management', icon: '\uD83D\uDD11' },
+    { path: '/knowledge/secrets', label: 'Secrets Management', Icon: KeyRound },
   ]},
   { group: 'Observability', items: [
-    { path: '/knowledge/observability', label: 'Prometheus & Grafana', icon: '\uD83D\uDCCA' },
+    { path: '/knowledge/observability', label: 'Prometheus & Grafana', Icon: BarChart2 },
   ]},
   { group: 'CI/CD', items: [
-    { path: '/knowledge/cicd', label: 'CI/CD Pipelines', icon: '\u2699\uFE0F' },
+    { path: '/knowledge/cicd', label: 'CI/CD Pipelines', Icon: Workflow },
   ]},
   { group: 'Containers', items: [
-    { path: '/knowledge/docker', label: 'Docker & Images', icon: '\uD83D\uDC33' },
+    { path: '/knowledge/docker', label: 'Docker & Images', Icon: Box },
   ]},
   { group: 'Cost & Efficiency', items: [
-    { path: '/knowledge/cost', label: 'Cost Optimization', icon: '\uD83D\uDCB0' },
+    { path: '/knowledge/cost', label: 'Cost Optimization', Icon: TrendingDown },
   ]},
   { group: 'Advanced Topics', items: [
-    { path: '/knowledge/incident', label: 'Incident Response', icon: '\uD83D\uDEA8' },
-    { path: '/knowledge/sre', label: 'SRE Concepts', icon: '\uD83D\uDCD0' },
-    { path: '/knowledge/linux', label: 'Linux & OS', icon: '\uD83D\uDC27' },
-    { path: '/knowledge/networking', label: 'Networking Deep Dive', icon: '\uD83C\uDF0D' },
-  ]},
-  { group: 'Interview Prep', items: [
-    { path: '/knowledge/system-design', label: 'System Design Framework', icon: '\uD83D\uDCCB' },
-    { path: '/knowledge/my-notes', label: 'My Notes', icon: '\uD83D\uDCDD' },
+    { path: '/knowledge/incident',   label: 'Incident Response',    Icon: AlertTriangle },
+    { path: '/knowledge/sre',        label: 'SRE Concepts',         Icon: Target },
+    { path: '/knowledge/linux',      label: 'Linux & OS',           Icon: Terminal },
+    { path: '/knowledge/networking', label: 'Networking Deep Dive', Icon: Globe },
   ]},
 ];
 
@@ -84,7 +87,7 @@ function Sidebar({ isOpen, onClose }) {
   const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState({});
 
-  const toggle = (group) => setCollapsed(c => ({...c, [group]: !c[group]}));
+  const toggle = (group) => setCollapsed(c => ({ ...c, [group]: !c[group] }));
 
   return (
     <nav id="sidebar" className={isOpen ? 'sidebar-open' : undefined}>
@@ -94,10 +97,10 @@ function Sidebar({ isOpen, onClose }) {
           <span className="header-dot"></span>
           DevOps KB
         </h1>
-        <p>Interview prep & deep reference</p>
+        <p>Deep reference for the full stack</p>
       </div>
       <div className="search-wrap">
-        <span className="search-icon">{'\uD83D\uDD0D'}</span>
+        <Search size={13} className="search-icon-svg" />
         <input
           type="text"
           id="search-box"
@@ -115,18 +118,18 @@ function Sidebar({ isOpen, onClose }) {
               <span>{group}</span>
               <span className="nav-group-meta">
                 <span className="nav-count">{items.length}</span>
-                <span className="nav-collapse-arrow" style={{transform: collapsed[group] ? 'rotate(-90deg)' : 'none'}}>{'\u25BC'}</span>
+                <span className="nav-collapse-arrow" style={{ transform: collapsed[group] ? 'rotate(-90deg)' : 'none' }}>▼</span>
               </span>
             </div>
             {!collapsed[group] && filtered.map(item => (
               <NavLink
                 key={item.path}
                 to={item.path}
-                end={item.path === '/'}
+                end={item.path === '/knowledge'}
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
                 onClick={onClose}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-icon"><item.Icon size={14} strokeWidth={1.75} /></span>
                 {item.label}
                 {item.badge && <span className="progress-badge">{item.badge}</span>}
               </NavLink>
@@ -172,12 +175,10 @@ function AppInner() {
             <Route path="sre" element={<Sre />} />
             <Route path="linux" element={<Linux />} />
             <Route path="networking" element={<Networking />} />
-            <Route path="my-notes" element={<MyNotes />} />
             <Route path="request-flow" element={<RequestFlow />} />
             <Route path="eks-internals" element={<EksInternals />} />
             <Route path="secrets" element={<Secrets />} />
-            <Route path="system-design" element={<SystemDesign />} />
-            <Route path="*" element={<div style={{padding:'40px',color:'var(--text-3)'}}>{'\uD83D\uDEA7'} Section coming soon</div>} />
+            <Route path="*" element={<div style={{ padding: '40px', color: 'var(--text-3)' }}>Section coming soon</div>} />
           </Routes>
         </div>
       </main>

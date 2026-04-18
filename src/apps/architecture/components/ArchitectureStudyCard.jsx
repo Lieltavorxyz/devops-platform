@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function ArchitectureStudyCard({ steps = [], keyPoints = [], scenarioTitle }) {
+export default function ArchitectureStudyCard({ steps = [], keyPoints = [] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showKeyPoints, setShowKeyPoints] = useState(false);
 

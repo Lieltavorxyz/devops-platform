@@ -1,72 +1,70 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { scenarios } from '../data/architectureScenarios';
 
 const DIFF_COLORS = {
-  beginner: 'var(--green)',
-  intermediate: 'var(--orange)',
-  advanced: 'var(--red)',
+  easy:   { color: 'var(--green)',  dim: 'var(--green-dim)'  },
+  normal: { color: 'var(--blue)',   dim: 'var(--blue-dim)'   },
+  hard:   { color: 'var(--orange)', dim: 'var(--orange-dim)' },
+  expert: { color: 'var(--purple)', dim: 'var(--purple-dim)' },
 };
+
+const DIFF_LABELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard', expert: 'Expert' };
 
 function diffCount(level) {
   return scenarios.filter(s => s.difficulty === level).length;
 }
 
 export default function PracticeHome() {
-  const navigate = useNavigate();
   const total = scenarios.length;
 
   return (
     <>
-      <div className="practice-home-header">
+      <div className="arch-home-header">
         <h1>Architecture Practice</h1>
         <p>Step-by-step system design scenarios with drawing canvas</p>
-        <div className="practice-stats-row">
-          <span className="practice-stat-pill">{total} scenarios</span>
-          <span className="practice-stat-pill" style={{ color: 'var(--green)' }}>
-            {diffCount('beginner')} beginner
-          </span>
-          <span className="practice-stat-pill" style={{ color: 'var(--orange)' }}>
-            {diffCount('intermediate')} intermediate
-          </span>
-          <span className="practice-stat-pill" style={{ color: 'var(--red)' }}>
-            {diffCount('advanced')} advanced
-          </span>
+        <div className="arch-stats-row">
+          <span className="arch-stat-pill">{total} scenarios</span>
+          {diffCount('easy')   > 0 && <span className="arch-stat-pill easy">{diffCount('easy')} easy</span>}
+          {diffCount('normal') > 0 && <span className="arch-stat-pill normal">{diffCount('normal')} normal</span>}
+          {diffCount('hard')   > 0 && <span className="arch-stat-pill hard">{diffCount('hard')} hard</span>}
+          {diffCount('expert') > 0 && <span className="arch-stat-pill expert">{diffCount('expert')} expert</span>}
         </div>
       </div>
 
-      <div className="practice-grid">
+      <div className="arch-grid">
         {scenarios.map(scenario => {
-          const diffColor = DIFF_COLORS[scenario.difficulty] || 'var(--teal)';
+          const dc = DIFF_COLORS[scenario.difficulty] || DIFF_COLORS.normal;
           return (
             <div
               key={scenario.id}
-              className="practice-card"
-              style={{ '--diff-color': diffColor, cursor: 'pointer' }}
-              onClick={() => navigate(`/practice/${scenario.id}`)}
+              className="arch-card"
+              style={{ '--diff-color': dc.color, '--diff-dim': dc.dim }}
             >
-              <div className="practice-card-top">
-                <span className="practice-card-title">{scenario.title}</span>
-                <span className={`diff-badge ${scenario.difficulty}`}>
-                  {scenario.difficulty}
+              <div className="arch-card-top">
+                <span className="arch-card-title">{scenario.title}</span>
+                <span
+                  className="arch-diff-badge"
+                  style={{ color: dc.color, background: dc.dim }}
+                >
+                  {DIFF_LABELS[scenario.difficulty] || scenario.difficulty}
                 </span>
               </div>
 
-              <p className="practice-card-desc">{scenario.description}</p>
+              <p className="arch-card-desc">{scenario.description}</p>
 
-              <div className="practice-card-tags">
+              <div className="arch-card-tags">
                 {scenario.tags.map(tag => (
-                  <span key={tag} className="practice-tag">{tag}</span>
+                  <span key={tag} className="arch-tag">{tag}</span>
                 ))}
               </div>
 
-              <div className="practice-card-meta">
-                <div className="practice-meta-info">
-                  <span>~{scenario.estimatedMinutes} min</span>
-                  <span>{scenario.steps.length} steps</span>
-                </div>
-                <span className="practice-start-btn">
-                  Start Practice →
+              <div className="arch-card-footer">
+                <span className="arch-card-meta">
+                  ⏱ {scenario.estimatedMinutes} min · {scenario.steps.length} steps
                 </span>
+                <Link to={`/architecture/practice/${scenario.id}`} className="arch-start-btn">
+                  Start <span>→</span>
+                </Link>
               </div>
             </div>
           );

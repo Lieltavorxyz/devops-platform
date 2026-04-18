@@ -3,10 +3,20 @@ import { useParams, Link } from 'react-router-dom';
 import { scenarios } from '../data/architectureScenarios';
 import ArchitectureStudyCard from '../components/ArchitectureStudyCard';
 import DiagramCanvas from '../components/DiagramCanvas';
+import ExcalidrawViewer from '../components/ExcalidrawViewer';
+
+const DIFF_COLORS = {
+  easy:   'var(--green)',
+  normal: 'var(--blue)',
+  hard:   'var(--orange)',
+  expert: 'var(--purple)',
+};
+
+const DIFF_LABELS = { easy: 'Easy', normal: 'Normal', hard: 'Hard', expert: 'Expert' };
 
 const TABS = [
   { key: 'guide', label: 'Guide' },
-  { key: 'draw', label: 'Draw' },
+  { key: 'draw',  label: 'Draw'  },
   { key: 'notes', label: 'Notes' },
 ];
 
@@ -21,6 +31,7 @@ export default function PracticeSession() {
   const [saved, setSaved] = useState(false);
   const saveTimerRef = useRef(null);
   const [activeTab, setActiveTab] = useState('guide');
+  const [revealed, setRevealed] = useState(false);
 
   function handleNotesChange(e) {
     const val = e.target.value;
@@ -37,41 +48,42 @@ export default function PracticeSession() {
 
   if (!scenario) {
     return (
-      <div style={{ paddingTop: 'calc(var(--nav-height) + 24px)', padding: 'calc(var(--nav-height) + 24px) 24px 24px', maxWidth: 'var(--content-max)', margin: '0 auto' }}>
+      <div className="page-wrap">
         <p style={{ color: 'var(--text-2)' }}>Scenario not found.</p>
-        <Link to="/" style={{ color: 'var(--teal)', fontSize: 13 }}>← Back to scenarios</Link>
+        <Link to="/architecture" style={{ color: 'var(--teal)', fontSize: 13 }}>
+          ← Back to scenarios
+        </Link>
       </div>
     );
   }
 
-  const diffClass = scenario.difficulty;
+  const diffColor = DIFF_COLORS[scenario.difficulty] || 'var(--teal)';
 
   return (
-    <div style={{ paddingTop: 'calc(var(--nav-height) + 24px)', padding: 'calc(var(--nav-height) + 24px) 24px 24px', maxWidth: 'var(--content-max)', margin: '0 auto' }}>
+    <div className="arch-session-wrap">
       {/* Top bar */}
-      <div className="practice-session-top">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Link to="/" className="practice-back-link">
-            ← Back to scenarios
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 className="practice-session-title">{scenario.title}</h1>
-            <span className={`diff-badge ${diffClass}`}>{scenario.difficulty}</span>
+      <div className="arch-session-top">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Link to="/architecture" className="arch-back-link">← Back to scenarios</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 className="arch-session-title">{scenario.title}</h1>
+            <span
+              className="arch-diff-badge"
+              style={{ color: diffColor, background: `${diffColor}20`, fontSize: 11 }}
+            >
+              {DIFF_LABELS[scenario.difficulty] || scenario.difficulty}
+            </span>
           </div>
         </div>
-        <div className="practice-session-meta">
-          <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-            ⏱ ~{scenario.estimatedMinutes} min
-          </span>
-        </div>
+        <span className="arch-session-meta">⏱ ~{scenario.estimatedMinutes} min</span>
       </div>
 
-      {/* Mobile tab switcher */}
-      <div className="practice-tabs">
+      {/* Mobile tabs */}
+      <div className="arch-tabs">
         {TABS.map(tab => (
           <button
             key={tab.key}
-            className={`practice-tab-btn${activeTab === tab.key ? ' active' : ''}`}
+            className={`arch-tab-btn${activeTab === tab.key ? ' active' : ''}`}
             onClick={() => setActiveTab(tab.key)}
           >
             {tab.label}
@@ -80,10 +92,10 @@ export default function PracticeSession() {
       </div>
 
       {/* Three-panel layout */}
-      <div className="practice-panels">
-        {/* Panel 1: Study Card */}
-        <div className={`practice-panel${activeTab === 'guide' ? ' active' : ''}`}>
-          <div className="practice-panel-label">Study Guide</div>
+      <div className="arch-panels">
+        {/* Guide */}
+        <div className={`arch-panel${activeTab === 'guide' ? ' active' : ''}`}>
+          <div className="arch-panel-label">Study Guide</div>
           <ArchitectureStudyCard
             steps={scenario.steps}
             keyPoints={scenario.keyPoints || []}
@@ -91,29 +103,46 @@ export default function PracticeSession() {
           />
         </div>
 
-        {/* Panel 2: Excalidraw Canvas */}
-        <div className={`practice-panel${activeTab === 'draw' ? ' active' : ''}`}>
-          <div className="practice-panel-label">Architecture Diagram</div>
-          <DiagramCanvas scenarioId={id} />
+        {/* Draw + optional reveal */}
+        <div className={`arch-panel arch-panel--draw${activeTab === 'draw' ? ' active' : ''}`}>
+          <div className="arch-draw-header">
+            <div className="arch-panel-label" style={{ margin: 0 }}>Architecture Diagram</div>
+            <button
+              className={`arch-reveal-btn${revealed ? ' arch-reveal-btn--active' : ''}`}
+              onClick={() => setRevealed(v => !v)}
+            >
+              {revealed ? '✕ Hide Reference' : '◎ Show Reference Answer'}
+            </button>
+          </div>
+
+          <div className={`arch-draw-split${revealed ? ' arch-draw-split--revealed' : ''}`}>
+            <div className="arch-canvas-area">
+              <DiagramCanvas scenarioId={id} />
+            </div>
+            {revealed && (
+              <div className="arch-viewer-area">
+                <div className="arch-viewer-label">Reference Answer</div>
+                <ExcalidrawViewer scenario={scenario} />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Panel 3: Text Flow */}
-        <div className={`practice-panel${activeTab === 'notes' ? ' active' : ''}`}>
-          <div className="practice-panel-label">Your Notes</div>
-          <div className="flow-textarea-wrap">
-            <div className="flow-textarea-header">
+        {/* Notes */}
+        <div className={`arch-panel${activeTab === 'notes' ? ' active' : ''}`}>
+          <div className="arch-panel-label">Your Notes</div>
+          <div className="arch-notes-wrap">
+            <div className="arch-notes-header">
               <h3>Write the flow</h3>
               <p>Describe the architecture in your own words</p>
             </div>
             <textarea
-              className="flow-textarea"
+              className="arch-notes-textarea"
               value={notes}
               onChange={handleNotesChange}
-              placeholder="Start with the entry point... e.g. 'User hits the ALB → ingress routes to service → pod processes request...'"
+              placeholder="Start with the entry point… e.g. 'User hits the ALB → ingress routes to service → pod processes request…'"
             />
-            <div className={`flow-save-indicator${saved ? ' visible' : ''}`}>
-              Saved ✓
-            </div>
+            <div className={`arch-notes-saved${saved ? ' visible' : ''}`}>Saved ✓</div>
           </div>
         </div>
       </div>
