@@ -24,7 +24,6 @@ export default function Leaderboard() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     getLeaderboard(selectedCat, selectedDiff, 10).then(({ items, source: src }) => {
       if (!cancelled) {
@@ -62,7 +61,7 @@ export default function Leaderboard() {
             <button
               key={cat.id}
               className={`lb-cat-tab${selectedCat === cat.id ? ' lb-cat-tab--active' : ''}`}
-              onClick={() => setSelectedCat(cat.id)}
+              onClick={() => { setSelectedCat(cat.id); setLoading(true); }}
             >
               <span>{cat.icon}</span>
               <span>{cat.label}</span>
@@ -77,7 +76,7 @@ export default function Leaderboard() {
               key={d}
               className={`diff-filter-btn${selectedDiff === d ? ' diff-filter-btn--active' : ''}`}
               style={selectedDiff === d ? { color: DIFF_COLOR[d], background: DIFF_DIM[d], borderColor: DIFF_COLOR[d] } : {}}
-              onClick={() => setSelectedDiff(d)}
+              onClick={() => { setSelectedDiff(d); setLoading(true); }}
             >
               {d.charAt(0).toUpperCase() + d.slice(1)}
             </button>

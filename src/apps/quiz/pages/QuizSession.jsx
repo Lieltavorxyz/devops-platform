@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import Flashcard from '../components/Flashcard';
 import CategoryIcon from '../components/CategoryIcon';
@@ -20,28 +20,26 @@ export default function QuizSession() {
     return difficulty ? all.filter((q) => q.difficulty === difficulty) : all;
   }, [categoryId, difficulty]);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [results, setResults] = useState([]);
-  const [phase, setPhase] = useState('quiz');
-  const [showResume, setShowResume] = useState(false);
-  const [savedProgress, setSavedProgress] = useState(null);
-  const [nickname, setNickname] = useState(() => {
-    try { return localStorage.getItem('quiz_nickname') || ''; } catch { return ''; }
-  });
-  const [scoreSubmitted, setScoreSubmitted] = useState(false);
-
   const storageKey = difficulty ? `${categoryId}_${difficulty}` : categoryId;
   const { loadProgress, saveProgress, clearProgress, saveBest, updateStats } = useQuizStorage(storageKey);
   const { submitScore } = useScores();
 
-  useEffect(() => {
-    const progress = loadProgress();
-    if (progress && progress.phase === 'quiz') {
-      setSavedProgress(progress);
-      setShowResume(true);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [results, setResults] = useState([]);
+  const [phase, setPhase] = useState('quiz');
+  const [savedProgress] = useState(() => {
+    const p = loadProgress();
+    return (p && p.phase === 'quiz') ? p : null;
+  });
+  const [showResume, setShowResume] = useState(() => {
+    const p = loadProgress();
+    return !!(p && p.phase === 'quiz');
+  });
+  const [nickname, setNickname] = useState(() => {
+    try { return localStorage.getItem('quiz_nickname') || ''; } catch { return ''; }
+  });
+  const [scoreSubmitted, setScoreSubmitted] = useState(false);
 
   const total = categoryQuestions.length;
   const current = categoryQuestions[currentIndex];
@@ -261,6 +259,7 @@ export default function QuizSession() {
 
       {/* Flashcard */}
       <Flashcard
+        key={current.id}
         question={current.question}
         options={current.options || []}
         correctIndex={current.correctIndex}

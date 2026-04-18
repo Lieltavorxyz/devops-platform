@@ -17,7 +17,7 @@ function saveLocalScore(entry) {
     // keep top 50 locally
     existing.sort((a, b) => b.pct - a.pct);
     localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
-  } catch (_) {}
+  } catch {}
 }
 
 function getLocalLeaderboard(category, difficulty, limit = 10) {
@@ -25,7 +25,7 @@ function getLocalLeaderboard(category, difficulty, limit = 10) {
     const key = localKey(category, difficulty);
     const items = JSON.parse(localStorage.getItem(key) || '[]');
     return items.slice(0, limit);
-  } catch (_) {
+  } catch {
     return [];
   }
 }
@@ -38,7 +38,7 @@ function getLocalPersonalBest(category, difficulty) {
     const mine = items.filter((e) => e.device_fp === fp);
     if (!mine.length) return null;
     return mine.reduce((best, e) => (e.pct > best.pct ? e : best), mine[0]);
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -86,7 +86,7 @@ export function useScores() {
         localStorage.setItem(rateLimitKey, Date.now().toString());
         return { ok: true, remote: true };
       }
-    } catch (_) {
+    } catch {
       // PocketBase offline — local save already done
     }
 
@@ -105,7 +105,7 @@ export function useScores() {
       if (!res.ok) throw new Error('bad response');
       const data = await res.json();
       return { items: data.items || [], source: 'remote' };
-    } catch (_) {
+    } catch {
       return { items: getLocalLeaderboard(category, difficulty, limit), source: 'local' };
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
 
@@ -13,10 +13,6 @@ export default function Flashcard({
   onSelect,
 }) {
   const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    setShowHint(false);
-  }, [question]);
 
   const answered = selectedOption !== null;
 

@@ -28,6 +28,6 @@ export function getDeviceFingerprint() {
 
   try {
     localStorage.setItem('_dfp', fp);
-  } catch (_) {}
+  } catch {}
   return fp;
 }
