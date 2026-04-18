@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import Flashcard from '../components/Flashcard';
+import CategoryIcon from '../components/CategoryIcon';
 import { categories, questions } from '../data/quizData';
 import { useQuizStorage } from '../hooks/useQuizStorage';
 import { useScores } from '../../../shared/hooks/useScores';
@@ -20,14 +21,13 @@ export default function QuizSession() {
   }, [categoryId, difficulty]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [writtenAnswer, setWrittenAnswer] = useState('');
+  const [selectedOption, setSelectedOption] = useState(null);
   const [results, setResults] = useState([]);
   const [phase, setPhase] = useState('quiz');
   const [showResume, setShowResume] = useState(false);
   const [savedProgress, setSavedProgress] = useState(null);
   const [nickname, setNickname] = useState(() => {
-    try { return localStorage.getItem('quiz_nickname') || ''; } catch (_) { return ''; }
+    try { return localStorage.getItem('quiz_nickname') || ''; } catch { return ''; }
   });
   const [scoreSubmitted, setScoreSubmitted] = useState(false);
 
@@ -47,44 +47,38 @@ export default function QuizSession() {
   const current = categoryQuestions[currentIndex];
   const progressPct = total > 0 ? (currentIndex / total) * 100 : 0;
 
-  const handleReveal = useCallback(() => {
-    setRevealed(true);
+  const handleSelect = useCallback((index) => {
+    setSelectedOption(index);
   }, []);
 
-  const handleRate = useCallback(
-    (correct) => {
-      const newResults = [...results, { questionId: current.id, correct }];
-      setResults(newResults);
-      setRevealed(false);
-      setWrittenAnswer('');
+  const handleNext = useCallback(async () => {
+    const correct = selectedOption === current.correctIndex;
+    const newResults = [...results, { questionId: current.id, correct }];
+    setResults(newResults);
+    setSelectedOption(null);
 
-      if (currentIndex + 1 >= total) {
-        setTimeout(async () => {
-          const score = newResults.filter((r) => r.correct).length;
-          clearProgress();
-          saveBest(score, total);
-          updateStats(score, total);
-          setPhase('results');
+    if (currentIndex + 1 >= total) {
+      const score = newResults.filter((r) => r.correct).length;
+      clearProgress();
+      saveBest(score, total);
+      updateStats(score, total);
+      setPhase('results');
 
-          if (difficulty && !scoreSubmitted) {
-            setScoreSubmitted(true);
-            await submitScore({ category: categoryId, difficulty, score, total, nickname });
-          }
-        }, 350);
-      } else {
-        const nextIndex = currentIndex + 1;
-        saveProgress({ currentIndex: nextIndex, results: newResults, phase: 'quiz' });
-        setTimeout(() => setCurrentIndex(nextIndex), 350);
+      if (difficulty && !scoreSubmitted) {
+        setScoreSubmitted(true);
+        await submitScore({ category: categoryId, difficulty, score, total, nickname });
       }
-    },
-    [results, current, currentIndex, total, clearProgress, saveBest, updateStats,
-     saveProgress, difficulty, scoreSubmitted, submitScore, categoryId, nickname]
-  );
+    } else {
+      const nextIndex = currentIndex + 1;
+      saveProgress({ currentIndex: nextIndex, results: newResults, phase: 'quiz' });
+      setCurrentIndex(nextIndex);
+    }
+  }, [selectedOption, current, results, currentIndex, total, clearProgress, saveBest,
+      updateStats, saveProgress, difficulty, scoreSubmitted, submitScore, categoryId, nickname]);
 
   const handleRetry = useCallback(() => {
     setCurrentIndex(0);
-    setRevealed(false);
-    setWrittenAnswer('');
+    setSelectedOption(null);
     setResults([]);
     setPhase('quiz');
     setScoreSubmitted(false);
@@ -93,7 +87,7 @@ export default function QuizSession() {
   const handleNicknameChange = useCallback((e) => {
     const val = e.target.value.slice(0, 32);
     setNickname(val);
-    try { localStorage.setItem('quiz_nickname', val); } catch (_) {}
+    try { localStorage.setItem('quiz_nickname', val); } catch {}
   }, []);
 
   const tagStats = useMemo(() => {
@@ -252,8 +246,9 @@ export default function QuizSession() {
           <span>
             <strong>{currentIndex + 1}</strong> / <strong>{total}</strong>
           </span>
-          <span>
-            {category.icon} {category.label}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <span className="quiz-session-cat-icon"><CategoryIcon id={category.id} size={13} /></span>
+            {category.label}
             {difficulty && (
               <span style={{ marginLeft: 8, color: DIFF_COLOR[difficulty], fontSize: 11, fontWeight: 700 }}>
                 · {DIFF_LABEL[difficulty]}
@@ -267,47 +262,20 @@ export default function QuizSession() {
       {/* Flashcard */}
       <Flashcard
         question={current.question}
+        options={current.options || []}
+        correctIndex={current.correctIndex}
         answer={current.answer}
         hint={current.hint}
-        revealed={revealed}
-        writtenAnswer={writtenAnswer}
         categoryColor={category.color}
-        keyPoints={current.keyPoints || []}
+        selectedOption={selectedOption}
+        onSelect={handleSelect}
       />
 
-      {/* Answer area / rate buttons */}
-      {!revealed ? (
-        <div className="quiz-answer-area">
-          <label className="quiz-label" htmlFor="answer-input">Your answer</label>
-          <textarea
-            id="answer-input"
-            className="quiz-textarea"
-            placeholder="Type your answer… or flip to see it directly"
-            value={writtenAnswer}
-            onChange={(e) => setWrittenAnswer(e.target.value)}
-            rows={4}
-          />
-          <div className="quiz-answer-btns">
-            <button className="btn-flip-skip" type="button" onClick={handleReveal}>
-              Flip to see answer
-            </button>
-            <button
-              className="btn-reveal-answer"
-              type="button"
-              onClick={handleReveal}
-              disabled={writtenAnswer.trim().length === 0}
-            >
-              Reveal answer →
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="quiz-rate-btns">
-          <button className="btn-missed" type="button" onClick={() => handleRate(false)}>
-            ✗ Missed it
-          </button>
-          <button className="btn-got-it" type="button" onClick={() => handleRate(true)}>
-            ✓ Got it
+      {/* Next button — only shown after selection */}
+      {selectedOption !== null && (
+        <div className="quiz-next-row">
+          <button className="quiz-next-btn" type="button" onClick={handleNext}>
+            {currentIndex + 1 >= total ? 'Finish →' : 'Next →'}
           </button>
         </div>
       )}

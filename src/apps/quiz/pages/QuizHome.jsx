@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { categories, questions } from '../data/quizData';
 import { useScores } from '../../../shared/hooks/useScores';
+import CategoryIcon from '../components/CategoryIcon';
 
 const DIFFICULTIES = [
   { id: 'all',    label: 'All',    color: 'var(--text-2)',  dim: 'transparent'       },
@@ -86,7 +87,9 @@ export default function QuizHome() {
               style={{ '--cat-accent': colors.accent, '--cat-dim': colors.dim, opacity: disabled ? 0.45 : 1 }}
             >
               <div className="quiz-cat-card-header">
-                <span className="quiz-cat-icon">{cat.icon}</span>
+                <div className="quiz-cat-icon-box">
+                  <CategoryIcon id={cat.id} size={20} />
+                </div>
                 <span className="quiz-cat-name">{cat.label}</span>
               </div>
               <p className="quiz-cat-desc">{cat.description}</p>
