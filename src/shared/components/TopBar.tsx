@@ -2,9 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { URLS } from '../../config'
 
 const TABS = [
-  { to: '/knowledge',    label: 'Knowledge'     },
-  { to: '/quiz',         label: 'Quiz'          },
-  { to: '/architecture', label: 'Architecture'  },
+  { to: '/knowledge', label: 'Knowledge' },
+  { to: '/quiz',      label: 'Quiz'      },
 ]
 
 export default function TopBar() {

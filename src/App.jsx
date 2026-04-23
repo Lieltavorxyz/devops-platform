@@ -4,7 +4,6 @@ import TopBar from './shared/components/TopBar'
 
 const KnowledgeApp = lazy(() => import('@knowledge/App'))
 const QuizApp = lazy(() => import('@quiz/App'))
-const ArchitectureApp = lazy(() => import('@architecture/App'))
 
 function LoadingScreen() {
   return (
@@ -32,7 +31,6 @@ export default function App() {
           <Route path="/" element={<Navigate to="/knowledge" replace />} />
           <Route path="/knowledge/*" element={<KnowledgeApp />} />
           <Route path="/quiz/*" element={<QuizApp />} />
-          <Route path="/architecture/*" element={<ArchitectureApp />} />
           <Route path="*" element={<Navigate to="/knowledge" replace />} />
         </Routes>
       </Suspense>

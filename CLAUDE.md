@@ -3,10 +3,9 @@
 ## What this project is
 Public DevOps learning platform by **Liel Tavor**. One monorepo, one React app, one Cloudflare Pages deploy.
 
-Three apps merged under one React Router:
+Two apps under one React Router (Architecture section removed from nav — code kept in `src/apps/architecture/` but not routed):
 - `/` — Knowledge Base (migrated from devops-knowledge)
 - `/quiz/*` — Quiz + Flashcards + Scores (migrated from devops-quiz)
-- `/architecture/*` — Architecture Practice + Excalidraw (migrated from devops-architecture)
 
 **Portfolio is separate** → `portfolio-site` repo → `lieltavor.com`  
 **This platform** → `devops-platform` repo → `devops.lieltavor.com`
@@ -93,8 +92,6 @@ devops-platform/
 /quiz               → Quiz home (difficulty picker)
 /quiz/session       → Active quiz session
 /quiz/results       → Score + leaderboard
-/architecture       → Architecture scenarios home
-/architecture/:id   → Scenario study + Excalidraw canvas
 ```
 
 ---
@@ -157,7 +154,7 @@ docker compose up             # frontend + pocketbase backend
 | # | Task | Status |
 |---|------|--------|
 | P1-1 | Zinc dark CSS design system across all 3 apps | ✅ |
-| P1-2 | Global TopBar with nav tabs (Knowledge / Quiz / Architecture) | ✅ |
+| P1-2 | Global TopBar with nav tabs (Knowledge / Quiz) | ✅ |
 | P1-3 | Mobile responsive: hamburger sidebar, single-column | ✅ |
 | P1-4 | lucide-react icons throughout — no emojis | ✅ |
 
@@ -211,6 +208,37 @@ docker compose up             # frontend + pocketbase backend
 | P5-6 | ArgoCD ApplicationSet — deploy platform via own templates (k3s) | ⬜ |
 | P5-7 | Custom domain: `devops.lieltavor.com` DNS → Cloudflare Pages | ⬜ |
 | P5-8 | Smoke test production deploy | ⬜ |
+
+---
+
+### Phase 6 — Portfolio ↔ Platform Integration
+**Goal**: When a visitor lands on `lieltavor.com` (portfolio), they can click through to `devops.lieltavor.com` (platform) and vice versa. Both sites must know each other's live URLs via env vars.
+
+**Required steps to make it work end-to-end:**
+
+| # | Where | What | Notes |
+|---|-------|------|-------|
+| P6-1 | DNS (Cloudflare) | Add CNAME record: `devops.lieltavor.com → <cloudflare-pages-subdomain>.pages.dev` | Done as part of P5-7; prerequisite for everything else |
+| P6-2 | Cloudflare Pages — platform project | Set env var `VITE_PORTFOLIO_URL=https://lieltavor.com` | Already consumed by `src/config.ts`; TopBar "← lieltavor.com" link uses it |
+| P6-3 | Portfolio deploy (Cloudflare Pages or Vercel) | Set env var `VITE_PLATFORM_URL=https://devops.lieltavor.com` | Portfolio site reads this to build the "DevOps Platform" link |
+| P6-4 | `portfolio-site` repo | Add a "DevOps Platform" project card or nav link pointing to `VITE_PLATFORM_URL` | Code change in the portfolio repo — card with title, short description, and CTA button |
+| P6-5 | `devops-platform` repo | Verify `src/config.ts` `URLS.portfolio` resolves correctly in prod | Already coded; just needs the env var from P6-2 |
+| P6-6 | Both sites | Smoke test cross-links in production — click portfolio → platform → back | Confirm no redirect loops, correct domains |
+
+**Why each step is required:**
+- **P6-1** is a hard blocker — without the DNS record `devops.lieltavor.com` doesn't exist in the public internet.
+- **P6-2 + P6-3** are needed so hardcoded localhost URLs don't survive into production builds (the config already has `|| 'http://localhost:...'` fallbacks that would silently break prod links).
+- **P6-4** is the user-visible change — without adding a link in the portfolio there is nothing to click.
+- **P6-5 + P6-6** are verification — env vars are easy to forget and hard to debug after deploy.
+
+| # | Task | Status |
+|---|------|--------|
+| P6-1 | DNS: CNAME `devops.lieltavor.com` → Cloudflare Pages (done in P5-7) | ⬜ |
+| P6-2 | Platform env var: `VITE_PORTFOLIO_URL=https://lieltavor.com` in Cloudflare Pages | ⬜ |
+| P6-3 | Portfolio env var: `VITE_PLATFORM_URL=https://devops.lieltavor.com` in portfolio deploy | ⬜ |
+| P6-4 | Add "DevOps Platform" card/link in portfolio-site repo | ⬜ |
+| P6-5 | Verify `src/config.ts` URLS resolve correctly in prod build | ⬜ |
+| P6-6 | Smoke test: portfolio → platform → back, no broken links | ⬜ |
 
 ---
 
