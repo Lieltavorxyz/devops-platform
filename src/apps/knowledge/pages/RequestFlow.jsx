@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Globe, Network, Server, Layers, Activity, ArrowRightLeft } from 'lucide-react';
+import { Globe, Network, Server, Layers, Activity } from 'lucide-react';
 
 export default function RequestFlow() {
   return (

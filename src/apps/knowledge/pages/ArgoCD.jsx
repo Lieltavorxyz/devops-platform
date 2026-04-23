@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { GitBranch, GitMerge, RefreshCw, Lock, Workflow, Settings } from 'lucide-react';
+import { GitBranch, RefreshCw, Lock, Workflow, Settings } from 'lucide-react';
 
 export default function ArgoCD() {
   return (

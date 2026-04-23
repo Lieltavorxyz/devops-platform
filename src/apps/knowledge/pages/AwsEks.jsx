@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Server, Settings, RefreshCw, Key, Shield, AlertTriangle } from 'lucide-react';
+import { Server, Settings, RefreshCw, Key, Shield } from 'lucide-react';
 
 export default function AwsEks() {
   return (

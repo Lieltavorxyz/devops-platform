@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Cpu, Network, Server, Zap, Database, Settings } from 'lucide-react';
+import { Network, Server, Zap, Database, Settings } from 'lucide-react';
 
 export default function EksInternals() {
   return (

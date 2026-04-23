@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Database, Package, RefreshCw, AlertTriangle, FileCode, FolderTree, Shield, Terminal } from 'lucide-react';
+import { Database, Package, RefreshCw, AlertTriangle, FolderTree, Shield, Terminal } from 'lucide-react';
 
 export default function Terraform() {
   return (

@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Network, Globe, Shield, TrendingDown, Server, ArrowRightLeft } from 'lucide-react';
+import { Network, Globe, Shield, TrendingDown, ArrowRightLeft } from 'lucide-react';
 
 export default function AwsNetworking() {
   return (

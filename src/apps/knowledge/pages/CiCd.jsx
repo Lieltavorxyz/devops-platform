@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Workflow, GitBranch, Shield, RefreshCw, Terminal, AlertTriangle } from 'lucide-react';
+import { Workflow, GitBranch, Shield, Terminal, AlertTriangle } from 'lucide-react';
 
 export default function CiCd() {
   return (

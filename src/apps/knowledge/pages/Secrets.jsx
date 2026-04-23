@@ -3,7 +3,7 @@ import ReasoningMap from '../components/ReasoningMap';
 import HighlightBox from '../components/HighlightBox';
 import CodeBlock from '../components/CodeBlock';
 import CompareTable from '../components/CompareTable';
-import { Lock, Key, Shield, Database, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Lock, Key, Shield, Database, RefreshCw } from 'lucide-react';
 
 export default function Secrets() {
   return (
