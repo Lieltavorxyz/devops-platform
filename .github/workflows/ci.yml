@@ -30,6 +30,3 @@ jobs:
 
       - name: Build
         run: npm run build
-        env:
-          VITE_PORTFOLIO_URL: ${{ vars.VITE_PORTFOLIO_URL || 'https://lieltavor.com' }}
-          VITE_PLATFORM_URL: ${{ vars.VITE_PLATFORM_URL || 'https://devops.lieltavor.com' }}
