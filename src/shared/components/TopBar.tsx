@@ -24,7 +24,7 @@ export default function TopBar() {
           href={URLS.portfolio}
           className="hidden text-xs font-medium text-zinc-500 transition-colors duration-100 hover:text-zinc-300 sm:block"
         >
-          ← lieltavor.com
+          ← ltavor.com
         </a>
 
         {/* Centre — segmented nav */}
