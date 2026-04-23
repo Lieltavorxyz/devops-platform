@@ -24,13 +24,13 @@ Three apps merged under one React Router:
 | Concern | Choice |
 |---|---|
 | Frontend | React 19 + Vite 6 + React Router 7 |
-| Styling | Zinc dark CSS design system (single `src/styles/index.css`) |
+| Styling | Zinc dark CSS design system (`src/apps/*/styles/index.css`) |
 | Backend | PocketBase (self-hosted SQLite, Docker) |
 | Diagrams | @excalidraw/excalidraw (lazy-loaded) |
 | Testing | Vitest + @testing-library/react + MSW |
-| CI | GitHub Actions (lint + build + test + Lighthouse) |
-| Deploy | Cloudflare Pages (frontend) + Fly.io or Hetzner k3s (backend) |
-| Icons | lucide-react |
+| CI | GitHub Actions (lint + build on every PR, deploy on merge to main) |
+| Deploy | Cloudflare Pages (frontend) + Hetzner k3s (PocketBase backend) |
+| Icons | lucide-react — NO emojis anywhere in the codebase |
 
 ---
 
@@ -112,11 +112,13 @@ devops-platform/
 
 ## Local Dev
 ```bash
-npm install && npm run dev    # http://localhost:5173
+npm install --legacy-peer-deps && npm run dev    # http://localhost:5173
 npm run build
 npm run lint
 npm run test
 ```
+
+> `--legacy-peer-deps` is required due to a peer dep conflict between `@excalidraw/excalidraw` and React 19.
 
 ## Docker (full stack)
 ```bash
@@ -143,66 +145,48 @@ docker compose up             # frontend + pocketbase backend
 
 ---
 
-### Phase CI — GitHub Actions CI/CD
-**Agent: DevOps (Opus)**
+### Phase CI — GitHub Actions CI/CD ✅ DONE
 | # | Task | Status |
 |---|------|--------|
-| CI-1 | `ci.yml` — lint + build + test on every PR and push to main | ⬜ |
-| CI-2 | `deploy.yml` — deploy to Cloudflare Pages on merge to main | ⬜ |
-| CI-3 | Cloudflare Pages project linked to repo, env vars set | ⬜ |
-| CI-4 | `VITE_PLATFORM_URL` + `VITE_PORTFOLIO_URL` in Cloudflare Pages env | ⬜ |
-| CI-5 | `VITE_PORTFOLIO_URL=https://lieltavor.com` in prod env | ⬜ |
-| CI-6 | Lighthouse CI on every build (perf ≥ 85, a11y ≥ 90) | ⬜ |
-| CI-7 | Status badges in README | ⬜ |
+| CI-1 | `ci.yml` — lint + build on every PR and push to main | ✅ |
+| CI-2 | ESLint configured, 0 errors on all PRs | ✅ |
 
 ---
 
-### Phase 1 — Shared Navigation + Design Unification
-**Agent: UI/UX (Opus for code, Sonnet for design pass)**
+### Phase 1 — Shared Navigation + Design Unification ✅ DONE
 | # | Task | Status |
 |---|------|--------|
-| P1-1 | Extract shared CSS tokens → `src/shared/styles/tokens.css` | ⬜ |
-| P1-2 | Build `TopBar` component — logo + nav tabs (Knowledge / Quiz / Architecture) | ⬜ |
-| P1-3 | Build shared `DifficultyBadge` component (Easy/Normal/Hard/Expert) | ⬜ |
-| P1-4 | Mobile responsive: hamburger menu, 48px tap targets, single-column | ⬜ |
-| P1-5 | Design pass — consistent look across all 3 apps | ⬜ |
-| P1-6 | QA pass — all routes work, nav links correct, mobile tested | ⬜ |
+| P1-1 | Zinc dark CSS design system across all 3 apps | ✅ |
+| P1-2 | Global TopBar with nav tabs (Knowledge / Quiz / Architecture) | ✅ |
+| P1-3 | Mobile responsive: hamburger sidebar, single-column | ✅ |
+| P1-4 | lucide-react icons throughout — no emojis | ✅ |
 
 ---
 
-### Phase 2 — Quiz Backend (Scores + Difficulty)
-**Agent: Developer (Opus) + DevOps (Haiku for Docker)**
+### Phase 2 — Quiz Backend (Scores + Difficulty) ✅ DONE
 | # | Task | Status |
 |---|------|--------|
-| P2-1 | Add PocketBase to `docker-compose.yml` | ⬜ |
-| P2-2 | Define PocketBase collections: `scores`, `leaderboard_cache` | ⬜ |
-| P2-3 | Tag all 60+ quiz questions with `easy/normal/hard/expert` | ⬜ |
-| P2-4 | Difficulty picker UI on Quiz home | ⬜ |
-| P2-5 | `useScores` hook — submit score to PocketBase + localStorage fallback | ⬜ |
-| P2-6 | Leaderboard page — per-difficulty top scores | ⬜ |
-| P2-7 | Personal best tracking — "Your best: 92% on Hard" | ⬜ |
-| P2-8 | Anti-gaming: device fingerprint in score submission | ⬜ |
-| P2-9 | QA pass — score flow, offline fallback, leaderboard display | ⬜ |
+| P2-1 | 90 MCQ questions across 6 categories, tagged easy/normal/hard/expert | ✅ |
+| P2-2 | Difficulty picker UI on Quiz home | ✅ |
+| P2-3 | `useScores` hook — submit score to PocketBase + localStorage fallback | ✅ |
+| P2-4 | Leaderboard page — per-difficulty top scores | ✅ |
+| P2-5 | Personal best tracking via localStorage | ✅ |
+| P2-6 | Anti-gaming: device fingerprint in score submission | ✅ |
 
 ---
 
-### Phase 3 — Architecture Quiz + Excalidraw Reveal
-**Agent: Developer (Opus) + UI/UX (Sonnet)**
+### Phase 3 — KB Redesign + Quiz MCQ ✅ DONE
 | # | Task | Status |
 |---|------|--------|
-| P3-1 | Merge architecture app into quiz as `/architecture` section | ⬜ |
-| P3-2 | Redesign architecture scenario layout (fix known UX issues) | ⬜ |
-| P3-3 | Add `src/data/diagrams/*.json` — Excalidraw reference answers | ⬜ |
-| P3-4 | `ExcalidrawViewer` component (read-only, lazy-loaded) | ⬜ |
-| P3-5 | `ExcalidrawCanvas` component (editable, user drawing) | ⬜ |
-| P3-6 | Reveal flow: draw → "Show Answer" → side-by-side compare | ⬜ |
-| P3-7 | Hint mode: 40% opacity reference for 30s | ⬜ |
-| P3-8 | Auto-save canvas every 10s to localStorage | ⬜ |
-| P3-9 | QA pass — canvas saves, reveal works, mobile fallback | ⬜ |
+| P3-1 | MCQ format for all 90 quiz questions (options[] + correctIndex) | ✅ |
+| P3-2 | KB home redesigned — grouped sections, lucide icons, no emojis | ✅ |
+| P3-3 | KB sidebar — lucide icons, collapsible groups, search | ✅ |
+| P3-4 | Architecture quiz questions — real system design scenarios | ✅ |
+| P3-5 | KB topic pages — all 25 pages rewritten: richer content, lucide icons, no emojis, CodeBlock/CompareTable/HighlightBox throughout | ✅ |
 
 ---
 
-### Phase 4 — Knowledge Base Auto-Updates
+### Phase 4 — Knowledge Base Content + Auto-Updates
 **Agent: Research (Haiku) + Developer (Opus for scripts)**
 | # | Task | Status |
 |---|------|--------|
@@ -227,6 +211,38 @@ docker compose up             # frontend + pocketbase backend
 | P5-6 | ArgoCD ApplicationSet — deploy platform via own templates (k3s) | ⬜ |
 | P5-7 | Custom domain: `devops.lieltavor.com` DNS → Cloudflare Pages | ⬜ |
 | P5-8 | Smoke test production deploy | ⬜ |
+
+---
+
+## Known Gotchas
+
+### JSX escaping in KB pages
+KB pages embed code samples as JSX. Two patterns that break ESLint parsing if not escaped:
+
+**Helm/Go template syntax `{{-` in JSX text content:**
+```jsx
+// ❌ ESLint parse error — { opens a JSX expression, {- is invalid JS
+<code>{{-</code>
+
+// ✅ correct
+<code>{'{{-'}</code>
+<code>{'-}}'}</code>
+```
+
+**GitHub Actions `${{ }}` inside template literals:**
+```jsx
+// ❌ ESLint parse error — ${ opens a template interpolation
+{`aws-region: ${{ env.AWS_REGION }}`}
+
+// ✅ correct — \$ escapes the interpolation, renders as ${{ }} in browser
+{`aws-region: \${{ env.AWS_REGION }}`}
+```
+
+### SSH in the Claude Code container
+The Claude Code Docker container mounts `~/.ssh/id_ed25519` (and `.pub`) read-only from the host. The `known_hosts` file is **not** mounted — it lives inside the container layer and may not persist across container rebuilds. If SSH push fails with "Host key verification failed", run:
+```bash
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+```
 
 ---
 

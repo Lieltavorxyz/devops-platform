@@ -1,240 +1,330 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
 import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import { Cpu, Lock, Network, FileText, Terminal, Activity } from 'lucide-react';
 
 export default function Linux() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83D\uDC27'} Operating System Internals</div>
-        <h1>Linux & OS Fundamentals</h1>
-        <p>Cgroups, namespaces, iptables, and file descriptors — the kernel primitives that containers and Kubernetes are built on. Understanding these makes you dangerous at debugging, not just deploying.</p>
+        <div className="tool-badge">Operating System Internals</div>
+        <h1>Linux and OS Fundamentals</h1>
+        <p>cgroups, namespaces, iptables, signals, and file descriptors — the kernel primitives that containers and Kubernetes are built on. Debugging at this level is what separates operators who configure YAML from engineers who understand why it works.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'Why This Matters for DevOps',
-          body: 'Containers are not magic. A container is a process with cgroups (resource limits) and namespaces (isolation). When a pod is "throttled" or "OOMKilled," the answer is in the kernel, not in Kubernetes YAML. Senior engineers debug at this level.'
+          title: 'Containers Are Not Magic — They Are Linux Primitives',
+          body: 'A container is a process. Specifically, it is a process running in a set of Linux namespaces (providing isolation — the process sees only its own PIDs, network, and filesystem) with cgroup limits applied (providing resource enforcement — the kernel tracks and throttles CPU and memory usage). Docker, containerd, and Kubernetes are all just orchestrators that set up these kernel features and manage their lifecycle. When a pod is throttled or OOMKilled, the answer is in the kernel, not in Kubernetes YAML.'
         },
         {
-          title: 'The Abstraction Layers',
-          body: 'Your YAML sets resources.limits.cpu: "500m" \u2192 kubelet translates to cgroup config \u2192 Linux kernel enforces CFS CPU quota. Understanding each layer means you know where to look when things break.'
-        },
-        {
-          title: 'Interview Signal',
-          body: 'Knowing "under the hood" separates mid-level from senior. "The pod is throttled" is mid-level. "The CFS quota is being hit because CPU limits create a hard ceiling via cgroup v2\'s cpu.max, even though average utilization looks low" is senior.'
-        },
-        {
-          title: 'Key Primitives',
-          body: 'cgroups = resource limits (CPU, memory, I/O). Namespaces = isolation (PID, network, mount, UTS). iptables = packet routing (how Services route to Pods). File descriptors = how processes talk to files, sockets, pipes.'
+          title: 'The Abstraction Stack',
+          body: 'Your Kubernetes YAML (resources.limits.cpu: "500m") flows down through kubelet, which configures the cgroup for the container via containerd. The kernel enforces the CFS quota. When you see throttling in Prometheus metrics, the number comes from the cgroup accounting. Understanding each layer means you know where to look when behavior does not match expectations.'
         }
       ]} />
 
-      <Accordion title="cgroups — How Containers Get Resource Limits" icon={'\uD83D\uDCE6'} defaultOpen={true}>
+      <Accordion title="cgroups — Resource Limits Under Containers" icon={Cpu} defaultOpen={true}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Control groups (cgroups) are a Linux kernel feature that limits, accounts for, and isolates resource usage (CPU, memory, disk I/O) of a collection of processes. Every container runs inside a cgroup.
+          Control groups (cgroups) are a kernel feature that limits, accounts for, and isolates resource usage of a collection of processes. Every container runs inside a cgroup hierarchy. When you set Kubernetes resource requests and limits, kubelet translates them into cgroup configuration.
         </p>
-
-        <HighlightBox type="info">
-          <strong>How Kubernetes uses cgroups:</strong><br /><br />
-          When you set <code>resources.requests.cpu: "250m"</code> and <code>resources.limits.cpu: "500m"</code> in your pod spec:<br />
-          - <strong>Requests</strong> {'\u2192'} <code>cpu.shares</code> (cgroup v1) or <code>cpu.weight</code> (cgroup v2) — proportional sharing when CPU is contended<br />
-          - <strong>Limits</strong> {'\u2192'} <code>cpu.cfs_quota_us</code> / <code>cpu.cfs_period_us</code> (v1) or <code>cpu.max</code> (v2) — hard ceiling, <em>even if CPU is idle</em>
-        </HighlightBox>
-
-        <CodeBlock>{`# Where cgroup settings live on a node
-# cgroup v1:
-/sys/fs/cgroup/cpu/kubepods/pod&lt;pod-uid&gt;/&lt;container-id&gt;/cpu.cfs_quota_us
-/sys/fs/cgroup/cpu/kubepods/pod&lt;pod-uid&gt;/&lt;container-id&gt;/cpu.cfs_period_us
-/sys/fs/cgroup/memory/kubepods/pod&lt;pod-uid&gt;/&lt;container-id&gt;/memory.limit_in_bytes
-
-# cgroup v2:
-/sys/fs/cgroup/kubepods.slice/kubepods-pod&lt;uid&gt;.slice/&lt;container-id&gt;/cpu.max
-/sys/fs/cgroup/kubepods.slice/kubepods-pod&lt;uid&gt;.slice/&lt;container-id&gt;/memory.max
-
-# Example: 500m CPU limit means:
-# cpu.cfs_quota_us = 50000 (50ms out of every 100ms period)
-# The container gets 50% of ONE CPU core, period.
-
-# Check CPU throttling for a container:
-cat /sys/fs/cgroup/cpu/kubepods/pod&lt;uid&gt;/&lt;id&gt;/cpu.stat
-# Look for nr_throttled and throttled_time`}</CodeBlock>
-
-        <HighlightBox type="warn">
-          <strong>The CPU throttling trap (common interview question):</strong> A pod has <code>limits.cpu: 500m</code> and you see average CPU usage at 30%. But the app is slow. Why?<br /><br />
-          <strong>Answer:</strong> CPU limits use CFS (Completely Fair Scheduler) quota. The limit means "50ms of CPU time per 100ms period." If the app has a bursty workload — idle for 80ms then needs 70ms of CPU — it will be throttled even though <em>average</em> usage is low. The burst exceeds the per-period quota. This is why many teams remove CPU limits entirely and only use requests (for scheduling), relying on node-level monitoring instead.
-        </HighlightBox>
-
-        <p style={{fontSize:13, color:'var(--text)', margin:'12px 0'}}><strong>Memory is different — it's a hard kill:</strong></p>
-        <ul className="item-list">
-          <li><span className="bullet">{'\u2022'}</span> <span className="label">CPU limit exceeded:</span> Process is <em>throttled</em> (slowed down). It still runs, just slower.</li>
-          <li><span className="bullet">{'\u2022'}</span> <span className="label">Memory limit exceeded:</span> Process is <em>OOMKilled</em> (killed immediately). The kernel's OOM killer terminates it. Exit code 137.</li>
-          <li><span className="bullet">{'\u2022'}</span> <span className="label">Memory request exceeded:</span> Pod becomes a candidate for eviction if the node is under memory pressure. Higher priority pods survive.</li>
-        </ul>
-
-        <NotesBox id="linux-cgroups" placeholder="Have you debugged CPU throttling? Have you removed CPU limits? What resource settings does your team use?" />
-      </Accordion>
-
-      <Accordion title="Linux Namespaces — How Containers Get Isolation" icon={'\uD83D\uDD12'}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Namespaces isolate what a process can <em>see</em>. Each container gets its own view of PIDs, network interfaces, mounts, and hostnames — even though they share the same kernel.
-        </p>
-
         <CompareTable
-          headers={['Namespace', 'What It Isolates', 'How K8s Uses It', 'What Happens Without It']}
+          headers={['Kubernetes Field', 'cgroup v1 Mechanism', 'cgroup v2 Mechanism', 'What It Does']}
           rows={[
-            ['<strong>PID</strong>', 'Process IDs — container sees only its own processes', 'Each container gets PID 1 for its main process', 'Container could see and kill host processes'],
-            ['<strong>NET</strong>', 'Network interfaces, IP addresses, routing tables', 'Each pod gets its own network namespace (shared by containers in pod)', 'Containers would share host network, port conflicts'],
-            ['<strong>MNT</strong>', 'Filesystem mount points', 'Container sees only its own root filesystem + mounted volumes', 'Container could access host filesystem'],
-            ['<strong>UTS</strong>', 'Hostname and domain name', 'Each pod gets its own hostname (pod name)', 'All containers would share the host\'s hostname'],
-            ['<strong>IPC</strong>', 'Inter-process communication (shared memory, semaphores)', 'Containers in same pod share IPC namespace', 'Containers could interfere with each other\'s shared memory'],
-            ['<strong>USER</strong>', 'User and group IDs', 'Rootless containers — UID 0 in container maps to unprivileged UID on host', 'Root in container = root on host (security risk)'],
+            ['resources.requests.cpu', 'cpu.shares (proportional weight)', 'cpu.weight', 'Scheduling priority when CPU is contended — not a hard limit'],
+            ['resources.limits.cpu', 'cpu.cfs_quota_us / cpu.cfs_period_us', 'cpu.max', 'Hard ceiling: X ms of CPU per 100ms period — throttles when exceeded'],
+            ['resources.requests.memory', 'No direct cgroup setting — affects scheduler placement', 'memory.min (protected memory)', 'Scheduling guarantee — node will not accept pod without this space'],
+            ['resources.limits.memory', 'memory.limit_in_bytes', 'memory.max', 'OOMKill threshold — process killed when exceeded (exit code 137)'],
           ]}
         />
+        <CodeBlock language="bash">
+{`# Where cgroup settings live on an EKS node (cgroup v2)
+# Find the cgroup path for a running container:
+CONTAINER_ID=$(kubectl get pod payments-api-xxxx -n payments-prod \
+  -o jsonpath='{.status.containerStatuses[0].containerID}' | sed 's/containerd:\/\///')
 
-        <HighlightBox type="info">
-          <strong>Pod networking explained by namespaces:</strong> All containers in a pod share the same NET namespace. That's why they can reach each other on <code>localhost</code>. Each pod gets a unique IP because each pod gets a unique NET namespace. The pause container creates the namespace, and app containers join it.
-        </HighlightBox>
+# cgroup v2 path:
+ls /sys/fs/cgroup/kubepods.slice/
+# Find specific pod:
+find /sys/fs/cgroup/kubepods.slice -name "cpu.max" 2>/dev/null | head -5
 
-        <CodeBlock>{`# View namespaces for a process
-ls -la /proc/&lt;pid&gt;/ns/
+# Read CPU limit for a container (500m = 50000/100000)
+cat /sys/fs/cgroup/kubepods.slice/kubepods-pod<uid>.slice/<container>/cpu.max
+# Output: 50000 100000
+# Meaning: 50ms of CPU time per 100ms period = 500m CPU
 
-# Example output:
-lrwxrwxrwx 1 root root 0 ... cgroup -> 'cgroup:[4026531835]'
-lrwxrwxrwx 1 root root 0 ... ipc -> 'ipc:[4026532456]'
-lrwxrwxrwx 1 root root 0 ... mnt -> 'mnt:[4026532454]'
-lrwxrwxrwx 1 root root 0 ... net -> 'net:[4026532459]'
-lrwxrwxrwx 1 root root 0 ... pid -> 'pid:[4026532457]'
-lrwxrwxrwx 1 root root 0 ... user -> 'user:[4026531837]'
-lrwxrwxrwx 1 root root 0 ... uts -> 'uts:[4026532455]'
+# Read throttling statistics:
+cat /sys/fs/cgroup/kubepods.slice/.../cpu.stat
+# usage_usec 45123456      # total CPU time used
+# user_usec 30000000
+# system_usec 15123456
+# nr_periods 145000         # total scheduling periods
+# nr_throttled 23000        # periods where limit was hit
+# throttled_usec 2300000    # total time spent throttled`}
+        </CodeBlock>
+        <HighlightBox type="warn">The CPU throttling trap: a pod with limits.cpu: "500m" can be severely throttled even when average CPU utilization is 30%. CPU limits create a per-period hard ceiling via CFS quota. If the application is bursty — idle for 80ms then needs 70ms of CPU in a burst — it hits the 50ms quota mid-burst and stalls for the remaining 30ms of that period. Average utilization looks fine (bursts average out); P99 latency spikes. The Prometheus metric to check: <code>rate(container_cpu_cfs_throttled_seconds_total[5m]) / rate(container_cpu_cfs_periods_total[5m])</code> — anything above 5-10% is significant. Many teams remove CPU limits entirely and rely on requests for scheduling and node-level monitoring for safety.</HighlightBox>
+        <CodeBlock language="bash">
+{`# Memory is different — it causes immediate kill, not throttling
+# Memory limit exceeded → kernel OOM killer → SIGKILL → exit code 137
 
-# Enter a container's namespace from the host (debug):
-nsenter --target &lt;container-pid&gt; --mount --uts --ipc --net --pid`}</CodeBlock>
+# Check OOMKill events on a node:
+dmesg | grep -i "oom\|killed process"
+# Output: "Out of memory: Kill process 12345 (node) score 500 or sacrifice child"
 
-        <HighlightBox type="tip">
-          <strong>Interview insight:</strong> When asked "how do containers provide isolation?", the answer is <em>not</em> "like VMs." Containers share the kernel. Isolation comes from namespaces (what you can see) and cgroups (what resources you can use). This is why container escapes are possible — it's process-level isolation, not hardware-level.
-        </HighlightBox>
+# Kubernetes tracks OOMKills:
+kubectl describe pod payments-api-xxxx -n payments-prod
+# Events:
+#   Warning  OOMKilling  container payments-api was OOMKilled
 
-        <NotesBox id="linux-namespaces" placeholder="Have you used nsenter to debug? Have you worked with host networking or privileged containers?" />
+# Prometheus: alert on OOMKill events
+kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0
+
+# Memory QoS classes (determines eviction order under pressure):
+# Guaranteed: request == limit → never evicted (protected cgroup)
+# Burstable: request < limit  → evicted if node under pressure
+# BestEffort: no request or limit → evicted first`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="iptables — How kube-proxy Routes Traffic" icon={'\uD83D\uDD25'}>
+      <Accordion title="Linux Namespaces — How Containers Get Isolation" icon={Lock}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          iptables is the Linux kernel's packet filtering framework. kube-proxy uses it to implement Kubernetes Services — when traffic hits a ClusterIP, iptables rules DNAT it to a healthy pod IP.
+          Namespaces isolate what a process can see. Each container gets its own view of PIDs, network interfaces, filesystem mounts, and hostnames — even though all containers share the same Linux kernel. The kernel is the shared resource; namespaces partition the view of it.
         </p>
-
-        <HighlightBox type="info">
-          <strong>How a Kubernetes Service works under the hood (iptables mode):</strong><br /><br />
-          1. You create a Service with <code>type: ClusterIP</code> {'\u2192'} gets a virtual IP (e.g., 10.96.0.100)<br />
-          2. kube-proxy watches the API server for Service and Endpoints changes<br />
-          3. kube-proxy writes iptables rules on every node:<br />
-          &nbsp;&nbsp;&nbsp;&nbsp;- PREROUTING chain: if destination = 10.96.0.100:80, jump to service chain<br />
-          &nbsp;&nbsp;&nbsp;&nbsp;- Service chain: randomly DNAT to one of the pod IPs (load balancing)<br />
-          4. When a pod sends traffic to 10.96.0.100:80, iptables rewrites the destination to a real pod IP<br />
-          5. The response comes back directly (conntrack remembers the NAT mapping)
-        </HighlightBox>
-
-        <CodeBlock>{`# View iptables rules for a service (on a node)
-iptables -t nat -L KUBE-SERVICES -n | grep &lt;service-name&gt;
-
-# Example output for a service with 3 pods:
-Chain KUBE-SVC-XXXX (1 references)
-  statistic mode random probability 0.33333 → KUBE-SEP-AAA  # pod 1
-  statistic mode random probability 0.50000 → KUBE-SEP-BBB  # pod 2
-  → KUBE-SEP-CCC  # pod 3 (remainder)
-
-# Each KUBE-SEP chain does DNAT:
-Chain KUBE-SEP-AAA
-  DNAT to 10.0.1.15:8080  # actual pod IP`}</CodeBlock>
-
         <CompareTable
-          headers={['kube-proxy Mode', 'How It Works', 'Performance', 'When to Use']}
+          headers={['Namespace', 'Isolates', 'Kubernetes Usage', 'Attack if Missing']}
           rows={[
-            ['<strong>iptables</strong> (default)', 'Creates iptables rules for each Service/endpoint', 'Good for &lt; 5,000 services. Rule updates O(n).', 'Default choice, most clusters'],
-            ['<strong>IPVS</strong>', 'Uses Linux IPVS (kernel load balancer) instead of iptables', 'Better for large clusters. Hash-based lookup O(1).', 'Clusters with thousands of services'],
-            ['<strong>eBPF</strong> (Cilium)', 'Replaces kube-proxy entirely with eBPF programs', 'Best performance. No iptables overhead.', 'Modern clusters using Cilium CNI'],
+            ['PID', 'Process IDs — each namespace starts at PID 1', 'Container main process is PID 1; cannot see host processes', 'Container could send signals to host processes'],
+            ['NET', 'Network interfaces, IP routing, ports', 'Each pod gets its own network namespace and IP', 'Port conflicts, container could sniff host traffic'],
+            ['MNT', 'Filesystem mount points', 'Container sees only its own root filesystem and mounted volumes', 'Container could access any host filesystem path'],
+            ['UTS', 'Hostname and domain name', 'Each pod gets its pod name as hostname', 'Containers would all share host hostname'],
+            ['IPC', 'Shared memory and semaphores', 'Containers in same pod share IPC namespace (can use shared memory)', 'Cross-container shared memory interference'],
+            ['USER', 'User and group ID mappings', 'UID 0 in container maps to unprivileged UID on host (user namespaces)', 'Root in container = root on host — full container escape'],
           ]}
         />
+        <CodeBlock language="bash">
+{`# View namespaces for a process — each symlink points to a namespace inode
+ls -la /proc/$(pgrep node)/ns/
+# lrwxrwxrwx ipc -> 'ipc:[4026532456]'
+# lrwxrwxrwx net -> 'net:[4026532459]'    ← unique network namespace
+# lrwxrwxrwx pid -> 'pid:[4026532457]'
+# All containers in same pod share the same net namespace inode number
 
-        <HighlightBox type="warn">
-          <strong>Debugging tip:</strong> If a Service is not reachable, check: (1) Does the Service have endpoints? <code>kubectl get endpoints &lt;svc&gt;</code>. (2) Are pods healthy and passing readiness probes? (3) On the node, are iptables rules present? If using Cilium/eBPF, iptables rules won't exist — use <code>cilium service list</code> instead.
-        </HighlightBox>
+# Two containers in same pod will show same net namespace ID
+kubectl get pods payments-api-xxxx -n payments-prod -o jsonpath='{.spec.containers[*].name}'
+# Confirm shared network: exec into each container and check "ip a" — same IPs
 
-        <NotesBox id="linux-iptables" placeholder="Have you debugged service routing issues? Do you use iptables or IPVS mode? Have you worked with Cilium?" />
+# nsenter: enter a container's namespaces from the host (powerful debugging)
+# Find container PID on node:
+CPID=$(crictl inspect $(crictl ps | grep payments-api | awk '{print $1}') | jq '.info.pid')
+
+# Enter its network namespace to debug networking from the host:
+nsenter --target $CPID --net ip addr
+nsenter --target $CPID --net ss -tlnp  # show listening sockets inside container
+
+# Enter full namespace set (like being inside the container without exec):
+nsenter --target $CPID --mount --uts --ipc --net --pid`}
+        </CodeBlock>
+        <HighlightBox>The pause container (also called the infra container) is the first container started in every Kubernetes pod. Its only job is to create and hold the network, IPC, and UTS namespaces for the pod's lifetime. Application containers join these existing namespaces via the --network=container: flag in containerd. This is why all containers in a pod share the same IP address and can communicate on localhost — they share the same NET namespace that pause created and holds open.</HighlightBox>
+        <CodeBlock language="bash">
+{`# Verify pause container exists for every pod:
+crictl ps | grep pause
+# k8s_POD_payments-api-xxxx_payments-prod_...   pause   Running
+
+# Privileged containers — disable ALL namespace isolation (dangerous)
+# securityContext.privileged: true gives the container:
+# - Host PID namespace access
+# - Host network namespace access
+# - All Linux capabilities
+# - Full /dev access
+# This is equivalent to root on the host — use only for node-level tooling
+# (DaemonSets that need to configure kernel parameters, etc.)`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="File Descriptors & 'Too Many Open Files'" icon={'\uD83D\uDCC2'}>
+      <Accordion title="iptables and kube-proxy — How Services Route Traffic" icon={Network}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          A file descriptor (fd) is an integer that represents an open file, socket, pipe, or device. Every network connection, log file, and database connection uses a file descriptor. When you run out, things break in weird ways.
+          Kubernetes Services are a virtual concept. A ClusterIP is not a real network interface — no process listens on it. kube-proxy implements Services by programming iptables (or IPVS) rules on every node, so that traffic addressed to the ClusterIP is rewritten (DNAT) to a real pod IP by the kernel before it leaves the source node.
         </p>
+        <CodeBlock language="bash">
+{`# How kube-proxy implements a ClusterIP Service (iptables mode):
 
-        <HighlightBox type="info">
-          <strong>The "too many open files" error explained:</strong><br /><br />
-          Every process has a limit on how many file descriptors it can open (<code>ulimit -n</code>, typically 1024 or 65536).<br />
-          Each TCP connection = 1 fd. Each open file = 1 fd. Each pipe = 1 fd.<br /><br />
-          A pod running a web server with 5,000 concurrent connections needs at least 5,000 fds. If the limit is 1024, you get <code>too many open files</code> and new connections fail.
-        </HighlightBox>
+# 1. Service created with ClusterIP 10.96.45.100:80
+# 2. kube-proxy adds to KUBE-SERVICES chain in the nat table:
+iptables -t nat -L KUBE-SERVICES -n --line-numbers
+# KUBE-SVC-ABCDEF  tcp  10.96.45.100 port 80  → jump to service chain
 
-        <CodeBlock>{`# Check current fd limits for a process
-cat /proc/&lt;pid&gt;/limits | grep "open files"
-# Max open files            1024                 1048576              files
-#                           ^soft limit          ^hard limit
+# 3. The service chain probabilistically selects a backend:
+iptables -t nat -L KUBE-SVC-ABCDEF -n
+# KUBE-SEP-111  statistic mode random probability 0.33333  → pod 1
+# KUBE-SEP-222  statistic mode random probability 0.50000  → pod 2 (of remaining)
+# KUBE-SEP-333  (always, remainder)                        → pod 3
 
-# Count open fds for a process
-ls /proc/&lt;pid&gt;/fd | wc -l
+# 4. Each KUBE-SEP chain does DNAT to real pod IP:
+iptables -t nat -L KUBE-SEP-111 -n
+# DNAT to 10.0.1.15:8080
 
-# Check system-wide fd usage
+# The kernel rewrites the destination IP before forwarding
+# Conntrack remembers the mapping for the return path
+# kube-proxy does not handle any actual traffic — it only programs rules
+
+# Verify Service has healthy endpoints (prereq for iptables rules):
+kubectl get endpoints payments-api -n payments-prod
+# NAME           ENDPOINTS                        AGE
+# payments-api   10.0.1.15:8080,10.0.1.16:8080   5d
+
+# Empty endpoints = no healthy pods = Service cannot route traffic
+# This is the first thing to check when a Service is unreachable`}
+        </CodeBlock>
+        <CompareTable
+          headers={['kube-proxy Mode', 'Mechanism', 'Scale Limit', 'Latency', 'When to Use']}
+          rows={[
+            ['iptables (default)', 'Linear rule chain in kernel netfilter', '~5,000 services before performance degrades', 'Low — kernel-level', 'Default — most clusters'],
+            ['IPVS', 'Kernel IPVS (hash table lookup)', 'Thousands of services — O(1) lookup', 'Lower than iptables at scale', 'Large clusters with many services'],
+            ['eBPF (Cilium)', 'Replaces kube-proxy entirely with eBPF programs', 'Very high — hash-based, no netfilter overhead', 'Lowest — no kernel netfilter traversal', 'Cilium CNI installations, highest performance'],
+          ]}
+        />
+        <HighlightBox type="warn">When a Service is not reachable, the debugging sequence: (1) <code>kubectl get endpoints</code> — if empty, no pod passes readiness probe, fix the pod. (2) <code>kubectl describe pod</code> — check if readiness probe is failing. (3) On the node, <code>iptables -t nat -L KUBE-SERVICES -n | grep service-name</code> — rules should exist. (4) If using Cilium, iptables rules will not exist — use <code>cilium service list</code> and <code>cilium endpoint list</code> instead. (5) Check NetworkPolicy — a policy in the target namespace may be blocking the traffic even though routing works.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="Signals and Graceful Shutdown" icon={Activity}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          How a process terminates determines whether in-flight requests are dropped. Kubernetes sends specific signals in a specific order during pod termination. Applications that do not handle signals correctly drop connections, corrupt state, or leave dangling DB connections.
+        </p>
+        <CodeBlock language="bash">
+{`# Kubernetes pod termination sequence:
+
+# 1. Pod enters Terminating state
+#    - Removed from Service Endpoints immediately (no new traffic routes to it)
+#    - But existing connections may still be in-flight (race condition window)
+
+# 2. preStop hook runs (if configured)
+#    - Runs BEFORE SIGTERM is sent
+#    - Use to add a delay: sleep 5 to allow iptables propagation to other nodes
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command: ["sleep", "5"]
+
+# 3. SIGTERM sent to PID 1 in the container
+#    - Application should start graceful shutdown:
+#      - Stop accepting new requests
+#      - Wait for in-flight requests to complete
+#      - Close database connections
+#      - Flush metrics/logs
+
+# 4. terminationGracePeriodSeconds timer starts (default: 30 seconds)
+#    - If application exits within this period: clean exit
+#    - If not: SIGKILL is sent (immediate kill, no cleanup)
+
+# Common mistake: CMD ["sh", "-c", "node server.js"]
+# sh is PID 1. sh does NOT forward SIGTERM to child processes.
+# node server.js receives no signal and is killed with SIGKILL after grace period.
+
+# Fix: use exec form — node process becomes PID 1
+# CMD ["node", "server.js"]
+# Or use dumb-init/tini as PID 1 to forward signals properly:
+# ENTRYPOINT ["dumb-init", "--"]
+# CMD ["node", "server.js"]`}
+        </CodeBlock>
+        <CompareTable
+          headers={['Signal', 'Default Action', 'Common Kubernetes Use', 'Application Should Do']}
+          rows={[
+            ['SIGTERM (15)', 'Terminate gracefully', 'Sent by kubelet at start of graceful shutdown', 'Begin graceful shutdown: drain connections, flush state'],
+            ['SIGKILL (9)', 'Immediate kill — uncatchable', 'Sent after terminationGracePeriodSeconds expires', 'Nothing — process is killed immediately by kernel'],
+            ['SIGHUP (1)', 'Terminate (default)', 'Often used as "reload config" signal by convention', 'Reload configuration without restarting (nginx: nginx -s reload)'],
+            ['SIGINT (2)', 'Terminate', 'Ctrl+C in terminal', 'Same as SIGTERM — graceful shutdown'],
+            ['SIGCHLD (17)', 'Ignore (default)', 'Sent to parent when child process exits', 'PID 1 must reap zombie children (use tini/dumb-init)'],
+          ]}
+        />
+        <HighlightBox type="tip">The 5-second preStop sleep pattern is a workaround for a race condition: when a pod starts terminating, Kubernetes removes it from the Endpoints object. But iptables rules on remote nodes are not updated instantaneously — kube-proxy on those nodes may still route requests to the terminating pod for several seconds. A preStop sleep of 5 seconds ensures those stale routes have time to be removed before SIGTERM is sent and the application starts rejecting connections. Without this sleep, you get occasional connection refused errors during rolling deployments.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="File Descriptors — Connection Leaks and Limits" icon={FileText}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          A file descriptor is a small integer that represents an open resource — a file, socket, pipe, or device. Every TCP connection, every open log file, every database connection consumes one file descriptor. Each process has a limit. When the limit is reached, new connections and file opens fail with "too many open files."
+        </p>
+        <CodeBlock language="bash">
+{`# Diagnose "too many open files" error
+
+# Step 1: Find the process and check its limits
+kubectl exec -it payments-api-xxxx -n payments-prod -- \
+  cat /proc/1/limits | grep "open files"
+# Max open files    1024    1048576    files
+# Soft limit = 1024 → very low for a production service (web server needs 1 fd per connection)
+
+# Step 2: Count current open fds
+kubectl exec -it payments-api-xxxx -n payments-prod -- \
+  sh -c 'ls /proc/1/fd | wc -l'
+# 1021 → approaching the 1024 limit
+
+# Step 3: What type of fds are being held?
+kubectl exec -it payments-api-xxxx -n payments-prod -- \
+  ls -la /proc/1/fd | head -20
+# lrwxrwxrwx -> socket:[12345]   ← TCP connection
+# lrwxrwxrwx -> /app/logs/app.log ← open log file
+# Many sockets → connection leak
+
+# Step 4: Check system-wide fd usage
 cat /proc/sys/fs/file-nr
-# 3456    0    1048576
-# ^used   ^free  ^max
+# 45000  0  1048576
+# Used   Free  Max
 
-# In Kubernetes — set fd limits in the pod spec:
-securityContext:
-  sysctls:
-  - name: net.core.somaxconn
-    value: "65535"
-# Or use an init container to set ulimits`}</CodeBlock>
+# Fix short-term: increase the soft limit in the pod spec
+# securityContext at container level does not set ulimits directly
+# Use an initContainer or configure via node-level kubelet settings
+# Or increase via /proc/self/limits in the app startup script
 
-        <HighlightBox type="warn">
-          <strong>Common cause in K8s:</strong> Connection pool leaks. If your app opens DB connections but doesn't close them (e.g., missing <code>defer conn.Close()</code> in Go, or not returning connections to pool in Python), you slowly exhaust file descriptors. Symptoms: app works fine for hours, then suddenly starts failing all connections. Restart "fixes" it temporarily.
-        </HighlightBox>
-
-        <HighlightBox type="tip">
-          <strong>Debugging checklist for "too many open files":</strong><br />
-          1. <code>kubectl exec &lt;pod&gt; -- cat /proc/1/limits</code> — check the soft limit<br />
-          2. <code>kubectl exec &lt;pod&gt; -- ls /proc/1/fd | wc -l</code> — count current fds<br />
-          3. If fd count is near the limit, find what's leaking: <code>ls -la /proc/1/fd</code> shows what each fd points to (sockets, files, pipes)<br />
-          4. Fix: increase limit via <code>securityContext</code> (short-term), fix the leak (long-term)
-        </HighlightBox>
-
-        <NotesBox id="linux-fd" placeholder="Have you hit 'too many open files'? What caused it? How did you fix it? What limits does your team set?" />
+# Fix long-term: find and fix the leak
+# Common causes:
+# - DB connections not returned to pool (defer db.Close() missing in Go)
+# - HTTP clients without response.body.Close() calls
+# - File handles in loops without explicit close
+# - Event listeners accumulating in Node.js (EventEmitter memory leak)`}
+        </CodeBlock>
+        <HighlightBox>Connection pool leaks are the most common cause of file descriptor exhaustion in Kubernetes services. The pattern: application opens database connections but does not return them to the pool (missing defer, missing finally block, exception thrown before close). The pool fills up. New requests block waiting for a connection. Eventually file descriptors are exhausted for the process. The service appears healthy in readiness probes (a simple HTTP check) but cannot serve database-backed requests. Restart "fixes" it temporarily by recycling the process and its open fds. Monitor fd count as a metric: expose it in your application or use the node_filefd_allocated metric from node_exporter.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Interview Q&A — Linux & OS Fundamentals" icon={'\uD83C\uDFAF'}>
-        <HighlightBox type="info">
-          <strong>Q: A pod is throttled but CPU usage looks low. How do you debug?</strong><br /><br />
-          "This is the classic CFS quota issue. CPU <em>limits</em> in Kubernetes translate to CFS (Completely Fair Scheduler) quota — the container gets X milliseconds of CPU per 100ms period. If the workload is bursty — say it's idle for 80ms then needs 70ms of CPU in a burst — it will hit the quota even though average usage over a second looks low. I'd check: (1) <code>kubectl top pod</code> for average usage, (2) <code>cat /sys/fs/cgroup/cpu/.../cpu.stat</code> for <code>nr_throttled</code> — if throttled count is high, that confirms it. (3) Solution: either remove CPU limits (use only requests for scheduling) or increase the limit to accommodate bursts. Many teams, including Google's own guidance, recommend not setting CPU limits at all."
-        </HighlightBox>
+      <Accordion title="/proc Filesystem — Runtime Inspection" icon={Terminal}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          The /proc filesystem is a virtual filesystem in Linux that exposes kernel data structures as files. It is the primary interface for inspecting running processes, kernel configuration, and system state without requiring special tooling. Every piece of information that ps, top, and netstat report comes from /proc.
+        </p>
+        <CodeBlock language="bash">
+{`# /proc/<pid>/ — per-process information
+/proc/1/cmdline     # command line of the process (null-separated args)
+/proc/1/environ     # environment variables (null-separated)
+/proc/1/fd/         # directory of symlinks to open file descriptors
+/proc/1/fdinfo/     # per-fd information including file position
+/proc/1/limits      # resource limits (ulimits)
+/proc/1/maps        # memory map — virtual address space layout
+/proc/1/mem         # raw process memory (requires ptrace permission)
+/proc/1/net/tcp     # TCP connections held by this process
+/proc/1/net/tcp6    # IPv6 TCP connections
+/proc/1/ns/         # namespace symlinks
+/proc/1/smaps       # detailed memory usage per mapping (includes RSS, PSS, swap)
+/proc/1/stat        # process status (used by ps, top)
+/proc/1/status      # human-readable process status including memory
 
-        <HighlightBox type="info">
-          <strong>Q: What's the difference between a container and a VM?</strong><br /><br />
-          "A VM virtualizes hardware — it runs its own kernel on a hypervisor. A container shares the host kernel and uses Linux namespaces for isolation (PID, NET, MNT, UTS) and cgroups for resource limits. This means containers start in milliseconds (no kernel boot), use less memory (no duplicate OS), but have weaker isolation (shared kernel = container escapes are possible). For most workloads, containers are fine. For true multi-tenant isolation with untrusted code, you might need VMs or gVisor/Kata containers which add a kernel layer."
-        </HighlightBox>
+# Useful debugging commands using /proc (available even in minimal containers):
+kubectl exec -it payments-api-xxxx -n payments-prod -- \
+  cat /proc/1/net/tcp  # show all TCP connections in hex format
 
-        <HighlightBox type="info">
-          <strong>Q: How does kube-proxy route traffic to pods?</strong><br /><br />
-          "In iptables mode (the default), kube-proxy watches the API server for Service and Endpoint changes, then writes iptables NAT rules on every node. When a pod sends traffic to a ClusterIP, the kernel matches the iptables rule and DNATs the packet to a real pod IP using random probability-based load balancing. For NodePort, it adds DNAT rules on the host's external interface too. At scale (thousands of services), iptables gets slow because rule updates are O(n), so you switch to IPVS mode (hash-based O(1) lookup) or Cilium eBPF which replaces kube-proxy entirely."
-        </HighlightBox>
+# Convert hex port to decimal for readability:
+# Local addr: 0100007F:1F90 → 127.0.0.1:8080 (loopback, port 8080)
 
-        <HighlightBox type="info">
-          <strong>Q: A process keeps failing with 'too many open files.' How do you investigate?</strong><br /><br />
-          "First, check the current limit: <code>cat /proc/&lt;pid&gt;/limits</code> — look at the 'Max open files' soft limit. Then count current fds: <code>ls /proc/&lt;pid&gt;/fd | wc -l</code>. If it's near the limit, I'd list what the fds point to: <code>ls -la /proc/&lt;pid&gt;/fd</code> — this shows if it's sockets (likely connection leak), regular files (log files not closed), or pipes. Most common cause in K8s: DB connection pool leak — app opens connections but doesn't return them. Short-term fix: increase the limit. Long-term: fix the leak, add connection pool monitoring, set max pool size."
-        </HighlightBox>
+# Memory usage (RSS = resident set size = physical memory in use)
+kubectl exec -it payments-api-xxxx -n payments-prod -- \
+  cat /proc/1/status | grep -E "VmRSS|VmSize|VmPeak"
+# VmPeak:   512000 kB   ← peak virtual memory
+# VmSize:   420000 kB   ← current virtual memory
+# VmRSS:    180000 kB   ← physical memory actually in use
 
-        <NotesBox id="linux-interview" placeholder="Have you debugged at the OS level? Have you used nsenter, strace, /proc filesystem? What's the deepest you've gone?" />
+# /proc/sys/ — kernel tunable parameters
+cat /proc/sys/net/core/somaxconn    # max listen() backlog
+cat /proc/sys/vm/overcommit_memory  # memory overcommit setting
+cat /proc/sys/kernel/pid_max        # max PIDs available`}
+        </CodeBlock>
+        <HighlightBox type="tip">The /proc filesystem is available inside containers (subject to namespace isolation), making it the most reliable debugging tool when you do not have curl, netstat, or other utilities in a minimal image. When debugging a distroless container that has no shell, you cannot kubectl exec into it — but you can use kubectl debug with an ephemeral container that attaches to the same PID namespace and then inspect /proc/1/* from the debug container to see the main application's state.</HighlightBox>
       </Accordion>
     </div>
   );

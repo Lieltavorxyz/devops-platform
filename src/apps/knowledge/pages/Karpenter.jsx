@@ -1,110 +1,276 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
-import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import CompareTable from '../components/CompareTable';
+import { Cpu, TrendingDown, Settings, AlertTriangle, Zap, Server } from 'lucide-react';
 
 export default function Karpenter() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83C\uDFAF'} Kubernetes</div>
+        <div className="tool-badge">Kubernetes</div>
         <h1>Karpenter</h1>
-        <p>A flexible, high-performance node provisioner for Kubernetes. Karpenter directly provisions EC2 instances in response to pod demand — no node groups, no warm pools required.</p>
+        <p>How Karpenter provisions EC2 nodes on demand, why it beats Cluster Autoscaler for cost and speed, and how to configure NodePools and disruption correctly.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'The Problem with Cluster Autoscaler',
-          body: "Cluster Autoscaler scales ASG node groups, but ASGs are rigid — fixed instance type, fixed AZ, slow to provision (2-3 min). You need to pre-create node groups for every instance type combination you might want. Karpenter provisions nodes directly via EC2 Fleet API — faster (30-60s), flexible (picks the right instance type on demand), and cheaper."
+          title: 'Problem with Cluster Autoscaler',
+          body: 'Cluster Autoscaler scales Auto Scaling Groups, which means you need a separate node group for each instance type you might want. It cannot pick the right instance type on demand — it can only scale groups you pre-defined. Provisioning takes 2-3 minutes: ASG → EC2 launch → kubelet registration.'
         },
         {
           title: 'How Karpenter Works',
-          body: "Karpenter watches for unschedulable pods, evaluates their requirements (CPU, memory, GPU, zone, spot/on-demand), picks the optimal instance type from hundreds of options, and launches it directly via EC2. No ASG involved. It also consolidates underutilized nodes to save cost."
+          body: 'Karpenter watches for unschedulable pods, evaluates their requirements (CPU, memory, GPU, architecture, capacity type), and calls the EC2 Fleet API directly to launch the optimal instance. No ASG involved. Nodes appear in 30-60 seconds. It can choose from hundreds of instance types per NodePool.'
+        },
+        {
+          title: 'Consolidation',
+          body: 'Beyond provisioning, Karpenter actively optimizes: it identifies underutilized nodes whose pods can fit elsewhere, cordons them, drains pods to other nodes, and terminates the empty nodes. This automated bin-packing reduces waste without manual intervention.'
         }
       ]} />
 
-      <Accordion title="NodePool — The Core Config" icon={'\uD83D\uDCCB'} defaultOpen={true}>
-        <CodeBlock>{`# NodePool — defines what nodes Karpenter can provision
-apiVersion: karpenter.sh/v1beta1
+      <Accordion title="NodePool and EC2NodeClass — Core Configuration" icon={Settings} defaultOpen={true}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Karpenter's two CRDs: <code>NodePool</code> defines scheduling requirements and constraints. <code>EC2NodeClass</code> defines AWS-specific configuration (AMI, subnet, security groups, instance profile). They reference each other.
+        </p>
+        <CodeBlock language="yaml">
+{`apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
   name: default
 spec:
   template:
+    metadata:
+      labels:
+        node-type: general
     spec:
+      nodeClassRef:
+        apiVersion: karpenter.k8s.aws/v1
+        kind: EC2NodeClass
+        name: default
       requirements:
         - key: kubernetes.io/arch
           operator: In
           values: ["amd64"]
         - key: karpenter.sh/capacity-type
           operator: In
-          values: ["spot", "on-demand"]   # prefer spot, fall back to on-demand
+          values: ["spot", "on-demand"]   # prefer spot, EC2 falls back to on-demand
         - key: karpenter.k8s.aws/instance-category
           operator: In
-          values: ["c", "m", "r"]         # compute, general, memory families
+          values: ["c", "m", "r"]         # compute, general, memory-optimized
         - key: karpenter.k8s.aws/instance-generation
           operator: Gt
-          values: ["2"]                   # 3rd gen+ only (better perf/cost)
-      nodeClassRef:
-        apiVersion: karpenter.k8s.aws/v1beta1
-        kind: EC2NodeClass
-        name: default
+          values: ["3"]                   # 4th gen+ only — better perf/cost ratio
+        - key: karpenter.k8s.aws/instance-size
+          operator: NotIn
+          values: ["nano", "micro", "small", "medium"]  # min xlarge for prod
   limits:
-    cpu: 1000                             # max total CPU across all Karpenter nodes
+    cpu: "1000"                           # total CPU cap across all Karpenter nodes
+    memory: 4000Gi
   disruption:
     consolidationPolicy: WhenUnderutilized
-    consolidateAfter: 30s                 # compact underutilized nodes aggressively`}</CodeBlock>
-        <HighlightBox type="tip"><strong>Spot strategy:</strong> Listing multiple instance families (c, m, r) + multiple generations gives Karpenter hundreds of instance type options for spot. More options = less chance of spot interruption, better pricing. This is why Karpenter beats CA for spot workloads.</HighlightBox>
-        <NotesBox id="karpenter-nodepool" placeholder="How did you configure Karpenter NodePools? What instance families and capacity types did you use?" />
+    consolidateAfter: 30s
+    expireAfter: 720h                     # rotate nodes every 30 days (fresh AMIs)
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2023                       # Amazon Linux 2023 — recommended
+  role: "KarpenterNodeRole-my-cluster"    # EC2 instance profile role
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "my-cluster"   # Karpenter finds subnets by tag
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: "my-cluster"
+  tags:
+    Name: karpenter-node
+    Environment: prod`}
+        </CodeBlock>
+        <HighlightBox type="tip">Listing multiple instance categories (c, m, r) and many generations gives Karpenter hundreds of instance type options for spot selection. More options means lower probability of all options being interrupted simultaneously — Karpenter can pick whatever has availability. This is the biggest operational advantage over Cluster Autoscaler for spot workloads.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Karpenter vs Cluster Autoscaler" icon={'\u2696\uFE0F'}>
+      <Accordion title="Karpenter vs Cluster Autoscaler — Full Comparison" icon={Cpu}>
         <CompareTable
           headers={['Aspect', 'Cluster Autoscaler', 'Karpenter']}
           rows={[
-            ['Provisioning speed', '2-3 min (ASG → EC2)', '30-60s (direct EC2 Fleet)'],
-            ['Instance flexibility', 'Fixed per node group', 'Hundreds of types per NodePool'],
-            ['Spot handling', 'Needs separate spot node group', 'Native spot + fallback in one NodePool'],
-            ['Node consolidation', 'No (only scale down)', 'Yes — moves pods to compact nodes, terminates underused'],
-            ['Config complexity', 'Low — just configure ASGs', 'Medium — NodePool + EC2NodeClass + IAM'],
-            ['Maturity', 'Stable, battle-tested', 'GA since 2023, AWS-native, widely adopted on EKS'],
+            ['Provisioning speed', '2-3 min (ASG → EC2 → kubelet)', '30-60 seconds (direct EC2 Fleet API)'],
+            ['Instance type flexibility', 'Fixed per ASG node group', 'Hundreds of types per NodePool — picks optimal on demand'],
+            ['Spot handling', 'Requires separate spot node group per instance type', 'Native spot + on-demand fallback in one NodePool'],
+            ['Node consolidation', 'Scale-down only (node empty or under threshold)', 'Active bin-packing — moves pods to compact nodes, terminates underutilized'],
+            ['Configuration complexity', 'Low — configure ASGs in Terraform, done', 'Medium — NodePool + EC2NodeClass + IAM + discovery tags'],
+            ['Maturity on EKS', 'Battle-tested, GA for years', 'GA since late 2023, AWS-backed, widely adopted'],
+            ['Multi-architecture', 'Separate node group per arch', 'Single NodePool with arch requirement list'],
           ]}
         />
-        <HighlightBox type="tip"><strong>When to use which:</strong> New EKS cluster → Karpenter. Existing cluster with many node groups → Karpenter migration is worth it for cost. Don't mix both — they fight over the same unschedulable pods.</HighlightBox>
+        <HighlightBox type="warn">Never run Karpenter and Cluster Autoscaler simultaneously managing the same pods. They will compete over unschedulable pods. If migrating from CA to Karpenter: (1) install Karpenter, (2) add a NodePool, (3) cordon all CA-managed nodes to force new pods to Karpenter nodes, (4) remove CA once all pods have migrated.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Consolidation & Disruption" icon={'\uD83D\uDCC9'}>
+      <Accordion title="Spot Instance Strategy — Interruption Handling" icon={Zap}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Karpenter actively optimizes your cluster by consolidating underutilized nodes and replacing them with better-fit instances.
+          AWS sends a 2-minute termination notice before reclaiming a spot instance. Karpenter handles this natively — it watches for spot interruption signals and cordons + drains affected nodes gracefully.
+        </p>
+        <CodeBlock language="yaml">
+{`# Node Termination Handler is not needed with Karpenter — it handles interruptions natively
+# But your pods must be resilient to termination
+
+# Pod spec for spot-resilient workloads
+spec:
+  # Spread across AZs so a spot interruption in one AZ doesn't kill all replicas
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app: my-service
+
+  # Terminate gracefully within the 2-minute window
+  terminationGracePeriodSeconds: 90   # gives 90s for graceful shutdown
+
+  # PDB ensures minimum replicas stay up during drain
+  # (defined separately as a PodDisruptionBudget resource)`}
+        </CodeBlock>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Capacity type preference:</span> Karpenter's <code>spot, on-demand</code> ordering means it tries spot first. If no spot capacity is available for any of the instance types in the NodePool, it falls back to on-demand. You get the cost savings automatically when spot is available.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Workloads that cannot use spot:</span> StatefulSets with EBS volumes (volume AZ must match node AZ — interruption may strand the volume), long-running jobs with no checkpoint, services with strict availability SLOs. Use separate NodePools with <code>values: ["on-demand"]</code> for these.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Spot price variation:</span> Karpenter does not optimize purely for price — it picks any available instance that meets requirements. For batch workloads where cost matters more than latency, consider KEDA + spot-only NodePools with explicit instance type preferences.</div>
+          </li>
+        </ul>
+      </Accordion>
+
+      <Accordion title="Consolidation and Node Expiry" icon={TrendingDown}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Karpenter's consolidation engine runs continuously, looking for opportunities to reduce node count by moving pods to better-utilized nodes and terminating underutilized ones.
         </p>
         <ul className="item-list">
           <li>
-            <span className="bullet">{'\u2192'}</span>
-            <div><span className="label">WhenUnderutilized:</span> Karpenter deletes nodes that have pods which can fit on other existing nodes. This reduces waste from partially-filled nodes.</div>
+            <span className="bullet">→</span>
+            <div><span className="label">WhenUnderutilized:</span> Karpenter checks if all pods on a node can be scheduled on other existing nodes. If yes, it cordons the node, drains pods (respecting PDBs and terminationGracePeriodSeconds), and terminates the EC2 instance. This is aggressive and effective for cost savings.</div>
           </li>
           <li>
-            <span className="bullet">{'\u2192'}</span>
-            <div><span className="label">WhenEmpty:</span> Only removes nodes when they have no non-DaemonSet pods. Safer but less aggressive on cost savings.</div>
+            <span className="bullet">→</span>
+            <div><span className="label">WhenEmpty:</span> Only removes nodes when they have no non-DaemonSet pods. Much safer and less disruptive. Use this if your workloads cannot tolerate frequent rescheduling (long TCP connections, stateful in-memory state).</div>
           </li>
           <li>
-            <span className="bullet">{'\u2192'}</span>
-            <div><span className="label">Expiration:</span> Set <code>expireAfter</code> on NodePool to force node rotation (e.g., 720h = 30 days). Ensures nodes get fresh AMIs and don't accumulate drift.</div>
+            <span className="bullet">→</span>
+            <div><span className="label">expireAfter:</span> Nodes are terminated after a configured lifetime regardless of utilization. This forces node rotation, ensuring nodes run recent AMIs with security patches. 720h (30 days) is a common value — nodes get fresh AMIs without manual intervention.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">budgets field:</span> Karpenter v1 adds disruption budgets at the NodePool level, letting you control how many nodes can be disrupted simultaneously. Critical for limiting the blast radius of consolidation in production.</div>
           </li>
         </ul>
-        <HighlightBox type="warn"><strong>Disruption budget:</strong> Use PodDisruptionBudgets (PDBs) to protect critical workloads during consolidation. Without PDBs, Karpenter may drain a node that hosts your only replica.</HighlightBox>
+        <CodeBlock language="yaml">
+{`spec:
+  disruption:
+    consolidationPolicy: WhenUnderutilized
+    consolidateAfter: 30s
+    expireAfter: 720h
+    budgets:
+      - nodes: "10%"    # disrupt at most 10% of nodes at once
+      - schedule: "0 8 * * 1-5"   # allow consolidation only during business hours
+        duration: 8h
+        nodes: "5%"`}
+        </CodeBlock>
+        <HighlightBox type="warn">PodDisruptionBudgets are what protect your workloads during Karpenter consolidation. If a service has no PDB and only one replica, consolidation can drain the node hosting that replica, taking the service down briefly. Every production service needs both multiple replicas and a PDB.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Interview Q&A" icon={'\uD83D\uDCAC'}>
-        <HighlightBox type="info">
-          <strong>Q: What's the advantage of Karpenter over Cluster Autoscaler?</strong><br /><br />
-          "Cluster Autoscaler is limited to scaling pre-configured ASG node groups — if you need a different instance type, you need a different node group. Karpenter provisions nodes directly via EC2 Fleet API, so it can pick from hundreds of instance types based on what the pending pods actually need. It's faster (30-60s vs 2-3 min), handles spot interruptions better by having a large instance family pool, and consolidates underutilized nodes automatically to cut cost."
-        </HighlightBox>
-        <HighlightBox type="info">
-          <strong>Q: A pod is stuck Pending. How would you debug it with Karpenter?</strong><br /><br />
-          "First <code>kubectl describe pod</code> to see the scheduling failure reason. Then check Karpenter controller logs — it will show why it couldn't provision a node (e.g., no instance type matches requirements, EC2 capacity issue, NodePool limits hit, IRSA permissions on Karpenter). Check the NodePool's <code>status.conditions</code> for disruption or limit events."
-        </HighlightBox>
+      <Accordion title="Multiple NodePools — Workload Isolation" icon={Server}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Use multiple NodePools to create dedicated node pools for different workload classes. Pods select their NodePool via node selectors or the <code>karpenter.sh/nodepool</code> label in requirements.
+        </p>
+        <CodeBlock language="yaml">
+{`# NodePool for GPU workloads
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: gpu
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        name: gpu-class
+      requirements:
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["g", "p"]       # GPU instance families
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]    # GPU spot is rare and unreliable
+      taints:
+        - key: nvidia.com/gpu
+          effect: NoSchedule       # only pods with GPU toleration land here
+  limits:
+    cpu: "200"
+---
+# NodePool for spot batch workloads
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: spot-batch
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        name: default
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]         # spot only — cost-optimized
+      taints:
+        - key: workload-type
+          value: batch
+          effect: NoSchedule`}
+        </CodeBlock>
+        <HighlightBox type="tip">Assign workloads to NodePools via node selectors and tolerations. A pod with a GPU toleration and <code>resources.limits.nvidia.com/gpu: "1"</code> will only schedule on the gpu NodePool. This prevents batch jobs from consuming capacity reserved for real-time services.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="Debugging — Pod Stuck Pending with Karpenter" icon={AlertTriangle}>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Check Karpenter controller logs:</span> <code>kubectl logs -n karpenter -l app.kubernetes.io/name=karpenter -c controller --tail=50</code>. Karpenter logs why it cannot provision a node: EC2 capacity unavailable, NodePool limits exceeded, no instance type matches pod requirements, IRSA permission error.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Check NodePool status:</span> <code>kubectl get nodepool default -o yaml</code>. The status conditions show if limits have been hit or if there are provisioning errors.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Check NodeClaim:</span> When Karpenter decides to provision a node, it creates a NodeClaim object. <code>kubectl get nodeclaim</code> shows the state. If a NodeClaim is stuck in Pending, look at its events for EC2 launch errors.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">IAM permissions:</span> Karpenter needs specific IAM permissions to call EC2 Fleet API, describe subnets, and manage instances. The most common cause of silent provisioning failure is missing <code>ec2:RunInstances</code> or <code>ec2:CreateTags</code> permissions. Use the official Karpenter IAM policy from the docs.</div>
+          </li>
+        </ul>
+        <CodeBlock language="bash">
+{`# Describe the unschedulable pod to see why it's Pending
+kubectl describe pod stuck-pod-name
+
+# Check Karpenter logs for provisioning decisions
+kubectl logs -n karpenter \
+  -l app.kubernetes.io/name=karpenter \
+  -c controller \
+  --since=5m | grep -E "provision|error|warn"
+
+# Check NodeClaims (nodes Karpenter is attempting to provision)
+kubectl get nodeclaim
+
+# Check NodePool status for limits or errors
+kubectl get nodepool default -o jsonpath='{.status.conditions}' | jq .`}
+        </CodeBlock>
       </Accordion>
     </div>
   );

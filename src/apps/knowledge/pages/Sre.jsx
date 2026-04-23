@@ -1,207 +1,348 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
 import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import { BarChart2, DollarSign, Wrench, Scale, Activity, Settings } from 'lucide-react';
 
 export default function Sre() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83D\uDCD0'} Site Reliability Engineering</div>
+        <div className="tool-badge">Site Reliability Engineering</div>
         <h1>SRE Concepts</h1>
-        <p>SLIs, SLOs, SLAs, error budgets, and toil reduction — the quantitative framework for making reliability decisions. Understanding these concepts shows you think about reliability as an engineering discipline, not just "keep things up."</p>
+        <p>SLIs, SLOs, SLAs, error budgets, toil reduction, and capacity planning — the quantitative framework for making reliability decisions and the production mechanics of implementing them in Prometheus and Kubernetes.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'Problem It Solves',
-          body: '"How reliable should our service be?" Without SRE concepts, the answer is "as reliable as possible" — which means infinite cost and zero feature velocity. SRE gives you a quantitative framework: set a target, measure against it, and use the gap to make decisions.'
+          title: 'Reliability is a Feature with a Cost Function',
+          body: '100% reliability is the wrong target. Users cannot distinguish 99.99% from 100%, but your engineering team pays an enormous cost in complexity, deployment risk aversion, and maintenance trying to close that last gap. SRE formalizes this: set a target (SLO), measure against it (SLI), and use the gap between target and actual as a decision-making tool (error budget). The error budget is not the amount of downtime you plan to have — it is the amount of risk you are allowed to take on new features before reliability work must take priority.'
         },
         {
-          title: 'The Key Insight',
-          body: '100% reliability is the wrong target. Users can\'t tell the difference between 99.99% and 100%, but your engineering team pays a massive cost trying to close that gap. Error budgets formalize this: you get a "budget" of acceptable unreliability, and you spend it on shipping features.'
-        },
-        {
-          title: 'SRE vs DevOps',
-          body: 'DevOps is a culture — break silos between dev and ops. SRE is a practice — a specific way to implement operations with engineering rigor. Google\'s Ben Treynor: "SRE is what happens when you ask a software engineer to design an operations team."'
-        },
-        {
-          title: 'Why It Matters in Interviews',
-          body: 'Companies want engineers who can make data-driven reliability decisions. "We need to slow down feature releases because we\'re burning error budget" is the kind of reasoning senior engineers are expected to articulate.'
+          title: 'The Tension This Solves',
+          body: 'Product wants to ship faster. Operations wants to reduce risk. Without a framework, this is a permanent argument based on opinions and past incidents. With SLOs and error budgets, the conversation becomes: "We have 60% of our error budget remaining this month — we can deploy the risky migration." Or: "We are at 5% error budget remaining — we are in reliability-only mode until the window resets." The budget is the referee, not anyone\'s opinion.'
         }
       ]} />
 
-      <Accordion title="SLI / SLO / SLA — Definitions with Real Examples" icon={'\uD83D\uDCCA'} defaultOpen={true}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          These three terms form a hierarchy: SLI is the measurement, SLO is the target, SLA is the contract with consequences.
-        </p>
-
+      <Accordion title="SLI, SLO, SLA — Definitions and the Math" icon={BarChart2} defaultOpen={true}>
         <CompareTable
-          headers={['Term', 'What It Is', 'Who Sets It', 'Real Example']}
+          headers={['Term', 'What It Is', 'Who Sets It', 'Consequences If Missed']}
           rows={[
-            ['<strong>SLI</strong><br />(Service Level Indicator)', 'A measurable metric that reflects service health', 'Engineering team', '% of HTTP requests that return 2xx within 300ms'],
-            ['<strong>SLO</strong><br />(Service Level Objective)', 'A target value for an SLI — internal goal', 'Engineering + Product', '99.9% of requests succeed within 300ms, measured over 30 days'],
-            ['<strong>SLA</strong><br />(Service Level Agreement)', 'A contract with financial consequences if breached', 'Business + Legal', '"99.9% uptime or customer gets 10% credit" (like AWS S3 SLA)'],
+            ['SLI (Service Level Indicator)', 'A measured ratio or value that reflects service health from the user perspective', 'Engineering — measured automatically', 'None directly — it is just a measurement'],
+            ['SLO (Service Level Objective)', 'A target value for an SLI over a time window — internal goal', 'Engineering + Product together', 'Error budget burned; reliability sprint triggered'],
+            ['SLA (Service Level Agreement)', 'A contractual commitment with financial penalties if breached', 'Business + Legal + Engineering', 'Customer credits, contract penalties, churn'],
           ]}
         />
+        <HighlightBox>SLA must always be less strict than SLO. If your SLO is 99.9%, your SLA might be 99.5%. The gap between SLO and SLA is your operational safety margin — you can breach your internal target without immediately owing customers money. Companies that set SLA = SLO have no buffer: every internal miss is a financial penalty.</HighlightBox>
+        <CodeBlock language="text">
+{`# What reliability percentages actually mean in lost minutes
 
-        <HighlightBox type="tip">
-          <strong>Key relationship:</strong> SLA should always be <em>less strict</em> than SLO. If your SLO is 99.9%, your SLA might be 99.5%. This gives you a buffer — you can breach your internal target without owing customers money. If SLA = SLO, every internal miss is a financial penalty.
-        </HighlightBox>
+SLO Target | Monthly budget    | Annual budget     | Notes
+-----------|-------------------|-------------------|---------------------------
+99%        | 432 min (7.2 hrs) | 5,256 min (3.6d)  | Internal tools, batch jobs
+99.9%      | 43.2 min          | 525.6 min (8.8h)  | Most SaaS APIs
+99.95%     | 21.6 min          | 262.8 min (4.4h)  | Payment systems, auth
+99.99%     | 4.32 min          | 52.6 min          | Core infra: DNS, IAM
+99.999%    | 0.43 min          | 5.25 min          | Rarely needed outside telco
 
-        <HighlightBox type="info">
-          <strong>Common SLI types:</strong><br />
-          <strong>Availability:</strong> % of successful requests (non-5xx / total)<br />
-          <strong>Latency:</strong> % of requests faster than threshold (p99 &lt; 500ms)<br />
-          <strong>Throughput:</strong> requests per second the system can handle<br />
-          <strong>Correctness:</strong> % of responses that return the right data (harder to measure)
-        </HighlightBox>
-
-        <p style={{fontSize:13, color:'var(--text)', margin:'12px 0'}}><strong>What 99.9% actually means:</strong></p>
-
+# For 99.9% over a 30-day window:
+Total minutes = 30 * 24 * 60 = 43,200
+Allowed failures = 43,200 * 0.001 = 43.2 minutes of downtime`}
+        </CodeBlock>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Good SLIs measure what users experience, not internal technical metrics. Request success rate (non-5xx / total requests) is a good SLI because a user experiences failure when they get an error. CPU utilization is a bad SLI — high CPU does not mean users are seeing errors; low CPU does not mean they are not.
+        </p>
         <CompareTable
-          headers={['SLO Target', 'Allowed Downtime/Month', 'Allowed Downtime/Year', 'Typical Use Case']}
+          headers={['SLI Category', 'Definition', 'Prometheus Query (example)', 'Good For']}
           rows={[
-            ['99%', '~7.3 hours', '~3.65 days', 'Internal tools, batch jobs'],
-            ['99.9%', '~43.8 minutes', '~8.76 hours', 'Most SaaS products'],
-            ['99.95%', '~21.9 minutes', '~4.38 hours', 'Payment systems, auth services'],
-            ['99.99%', '~4.38 minutes', '~52.6 minutes', 'Core infrastructure (DNS, DB)'],
+            ['Availability', 'Fraction of successful requests', 'sum(rate(http_requests_total{code!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))', 'All request-serving services'],
+            ['Latency', 'Fraction of requests faster than threshold', 'histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) < 0.3', 'Latency-sensitive APIs'],
+            ['Throughput', 'Rate of successful operations', 'sum(rate(http_requests_total{code!~"5.."}[5m]))', 'Batch processing systems'],
+            ['Correctness', 'Fraction of responses with correct results', 'Custom probe comparing output to expected — harder to automate', 'Data pipelines, calculation services'],
+            ['Freshness', 'Age of most recent data written', 'time() - max(last_successful_write_timestamp)', 'Caches, sync jobs, feeds'],
           ]}
         />
-
-        <HighlightBox type="warn">
-          <strong>Gotcha:</strong> Many teams pick "99.99%" because it sounds good, without understanding the cost. Four nines means you can have less than 5 minutes of downtime per month. That means zero-downtime deployments, multi-region failover, and probably no maintenance windows. Is your service really worth that investment?
-        </HighlightBox>
-
-        <NotesBox id="sre-sli-slo" placeholder="Does your team have defined SLOs? What SLIs do you measure? How are they tracked (Grafana dashboards, Datadog)?" />
       </Accordion>
 
-      <Accordion title="Error Budgets — The Decision Framework" icon={'\uD83D\uDCB0'}>
+      <Accordion title="Error Budgets — The Decision Framework" icon={DollarSign}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          An error budget is the inverse of your SLO. If your SLO is 99.9%, your error budget is 0.1% — that's how much unreliability you're allowed. It turns reliability into a <em>resource</em> you can spend.
+          An error budget is the complement of your SLO. 99.9% SLO = 0.1% error budget. It is the amount of unreliability you are allowed over the measurement window. Spending it on a risky deployment that causes a 10-minute outage is legitimate — that is what the budget is for. Burning it on avoidable incidents is waste.
         </p>
+        <CodeBlock language="python">
+{`# Error budget calculation for a 30-day rolling window
+slo_target = 0.999           # 99.9%
+error_budget_fraction = 1 - slo_target  # 0.001
 
-        <HighlightBox type="info">
-          <strong>How error budgets work in practice:</strong><br /><br />
-          Your service has a 99.9% SLO measured over a 30-day rolling window.<br />
-          That means you can have ~43.8 minutes of downtime per month.<br />
-          If on day 14 you've already used 35 minutes (80% of budget), that's a signal.<br /><br />
-          <strong>Budget remaining &gt; 50%:</strong> Ship features freely. Deploy multiple times a day. Take risks.<br />
-          <strong>Budget remaining 20-50%:</strong> Slow down. More careful rollouts. Canary deployments.<br />
-          <strong>Budget remaining &lt; 20%:</strong> Feature freeze. Focus entirely on reliability. Fix what's causing incidents.<br />
-          <strong>Budget exhausted:</strong> Hard stop on deploys. All engineering effort goes to reliability.
-        </HighlightBox>
+total_requests_per_day = 86_400 * 1000  # 1000 rps service
+total_requests_30d = total_requests_per_day * 30  # 2,592,000,000
 
-        <CodeBlock>{`# Error budget calculation
-SLO target: 99.9%
-Error budget: 100% - 99.9% = 0.1%
+error_budget_requests = total_requests_30d * error_budget_fraction
+# = 2,592,000 failed requests allowed over 30 days
 
-# Over 30 days (in minutes)
-Total minutes: 30 * 24 * 60 = 43,200
-Error budget: 43,200 * 0.001 = 43.2 minutes
+# At 1000 rps:
+# 2,592,000 errors / 1000 rps = 2,592 seconds = 43.2 minutes of complete outage
+# OR 8,640 seconds (2.4 hours) at 30% error rate
 
-# If you've had 2 incidents this month:
-Incident 1: 15 min downtime
-Incident 2: 20 min downtime
-Budget used: 35 min / 43.2 min = 81%
-Budget remaining: 19% — approaching freeze threshold`}</CodeBlock>
-
-        <HighlightBox type="tip">
-          <strong>The power of error budgets:</strong> They resolve the eternal tension between dev ("ship features faster") and ops ("don't break things"). Instead of arguing, you look at the budget. Budget remaining? Ship. Budget burned? Stabilize. It's data-driven, not opinion-driven.
-        </HighlightBox>
-
-        <HighlightBox type="warn">
-          <strong>Real-world scenario (interview question):</strong> "Your service has a 99.9% SLO. You've burned 80% of your error budget in week 2. What do you do?" Answer: (1) Immediately communicate to stakeholders that feature releases will slow down. (2) Review the incidents that burned the budget — are they the same root cause? (3) Shift sprint priorities to address the top reliability issues. (4) Require canary deployments for any remaining releases this month. (5) Set up a daily error budget check-in until the window resets.
-        </HighlightBox>
-
-        <NotesBox id="sre-error-budget" placeholder="Does your team use error budgets? How do they influence deployment decisions? Have you ever been in a 'budget freeze'?" />
-      </Accordion>
-
-      <Accordion title="Toil Reduction" icon={'\uD83D\uDD27'}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Toil is manual, repetitive, automatable work that scales linearly with service size. Google's SRE book says: if an SRE team spends more than 50% of their time on toil, something is broken.
-        </p>
-
-        <HighlightBox type="info">
-          <strong>What counts as toil:</strong><br />
-          - Manually restarting pods that crash<br />
-          - Manually rotating secrets or certificates<br />
-          - Responding to the same alert repeatedly without fixing the underlying cause<br />
-          - Manually running database migrations<br />
-          - Copy-pasting config between environments<br /><br />
-          <strong>What is NOT toil:</strong><br />
-          - Incident response (novel problems require human judgment)<br />
-          - Architecture design (creative work)<br />
-          - On-call when things are quiet (availability isn't toil)
-        </HighlightBox>
-
+# Tracking budget burn rate:
+# If on day 15 you have used 2,000,000 of 2,592,000 allowed failures
+# Budget remaining: 592,000 / 2,592,000 = 22.8%
+# Burn rate: 2,000,000 / 15 days = 133,333/day
+# At current burn rate, budget exhausted in: 592,000 / 133,333 = 4.4 more days`}
+        </CodeBlock>
         <CompareTable
-          headers={['Toil Example', 'Frequency', 'Time per Occurrence', 'Automation Solution']}
+          headers={['Budget Remaining', 'Signal', 'Action']}
           rows={[
-            ['Manually scaling pods for traffic spikes', 'Daily', '15 min', 'HPA/KEDA autoscaling'],
-            ['Rotating expiring certificates', 'Quarterly', '2 hours', 'cert-manager with auto-renewal'],
-            ['Creating namespaces for new teams', 'Monthly', '1 hour', 'Self-service platform / IDP'],
-            ['Restarting pods after config changes', 'Weekly', '10 min', 'Reloader or stakater/reloader'],
-            ['Manually approving deployments', 'Daily', '5 min', 'Automated canary with AnalysisTemplate'],
+            ['>50%', 'Healthy — ahead of target', 'Deploy freely. Accept high-risk changes. Invest in new features.'],
+            ['20-50%', 'Watch closely', 'Require canary deployments. Code freeze for highest-risk changes. Watch burn rate.'],
+            ['5-20%', 'Alert threshold', 'Slow feature releases. Reliability sprint begins. Fix top error-budget consumers.'],
+            ['<5%', 'Near exhaustion', 'Feature freeze. All hands on reliability. Every deploy requires explicit approval.'],
+            ['Exhausted', 'SLO breached', 'Hard stop on deploys. Incident review. Formal reliability sprint before any new feature work.'],
           ]}
         />
+        <CodeBlock language="yaml">
+{`# Prometheus recording rules for SLO tracking
+# These rules pre-compute SLI values for efficient alerting
 
-        <HighlightBox type="tip">
-          <strong>Toil budget:</strong> Track how much time your team spends on toil vs engineering work. If toil is growing faster than your service, you have a scaling problem. The goal: automate yourself out of repetitive work so you can focus on reliability improvements.
-        </HighlightBox>
+groups:
+  - name: payments-api-slo
+    interval: 30s
+    rules:
+      # 5-minute error rate (short window — fast detection)
+      - record: job:http_requests_success:rate5m
+        expr: |
+          sum(rate(http_requests_total{job="payments-api",code!~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="payments-api"}[5m]))
 
-        <NotesBox id="sre-toil" placeholder="What repetitive tasks have you automated? What's still toil on your team? What would you automate if you had time?" />
+      # 30-day rolling availability (the SLI we track against the SLO)
+      - record: job:http_requests_success:rate30d
+        expr: |
+          sum(rate(http_requests_total{job="payments-api",code!~"5.."}[30d]))
+          /
+          sum(rate(http_requests_total{job="payments-api"}[30d]))
+
+      # Error budget remaining (fraction, not percentage)
+      - record: job:error_budget_remaining
+        expr: |
+          (job:http_requests_success:rate30d - 0.999) / (1 - 0.999)
+          # Positive = budget remaining; negative = SLO breached
+
+  - name: payments-api-slo-alerts
+    rules:
+      - alert: ErrorBudgetBurnRateHigh
+        expr: |
+          (
+            1 - job:http_requests_success:rate5m
+          ) > 14.4 * (1 - 0.999)
+          # 14.4x burn rate = budget exhausted in 2 hours at this rate
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error budget burning at 14.4x rate — will exhaust in 2 hours"
+          runbook_url: "https://runbooks.internal/slo-burn-rate"`}
+        </CodeBlock>
+        <HighlightBox type="tip">Burn rate alerts are more actionable than threshold alerts. An alert firing when error rate exceeds 1% fires too late — you may have already burned significant budget. A burn rate alert fires when your error rate is X times higher than the sustainable rate for your SLO window. 14.4x burn rate means at the current error rate, you will exhaust your monthly budget in 2 hours — act now. Google's SRE workbook defines specific burn rate multipliers (1x, 6x, 14.4x) for different severity levels.</HighlightBox>
       </Accordion>
 
-      <Accordion title="SRE vs DevOps — The Real Difference" icon={'\u2696\uFE0F'}>
+      <Accordion title="Toil Reduction — What It Is and How to Measure It" icon={Wrench}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          This comes up in interviews a lot. The short answer: DevOps is a culture/philosophy, SRE is a specific implementation of that philosophy with engineering practices.
+          Toil is manual, repetitive, automatable work that scales with service size and has no lasting value. It is distinct from operational work that requires human judgment (incident response, architecture decisions). Google's SRE principle: toil should be less than 50% of any SRE's work. Beyond that threshold, the team cannot improve the system — it is only running on the hamster wheel.
         </p>
-
         <CompareTable
-          headers={['Aspect', 'DevOps', 'SRE']}
+          headers={['Is It Toil?', 'Example', 'Reasoning']}
           rows={[
-            ['<strong>Origin</strong>', 'Community movement (~2008, Patrick Debois)', 'Google (~2003, Ben Treynor)'],
-            ['<strong>Focus</strong>', 'Breaking down silos between Dev and Ops', 'Engineering approach to operations'],
-            ['<strong>Reliability</strong>', '"Automate everything, move fast"', '"Set an SLO, use error budgets to balance speed and reliability"'],
-            ['<strong>Metrics</strong>', 'DORA metrics (deploy frequency, lead time, MTTR, change failure rate)', 'SLIs/SLOs, error budgets, toil %'],
-            ['<strong>Team Structure</strong>', 'Embedded in dev teams or platform team', 'Dedicated SRE team that works with dev teams'],
-            ['<strong>On-Call</strong>', '"You build it, you run it"', 'SRE team shares on-call; can hand back pager if error budget is burned'],
-            ['<strong>Best For</strong>', 'Any org wanting to improve delivery speed', 'Orgs at scale that need quantitative reliability management'],
+            ['Yes — toil', 'Manually restarting a pod that crashes periodically', 'Repetitive, automatable (liveness probe + self-healing), scales with pod count'],
+            ['Yes — toil', 'Manually rotating TLS certificates before expiry', 'Automatable with cert-manager, no judgment required'],
+            ['Yes — toil', 'Creating namespaces and RBAC for new teams', 'Same template every time — automate via IDP or gitops workflow'],
+            ['Yes — toil', 'Responding to the same alert that has a known fix', 'Should be automated (runbook automation) or fixed (address root cause)'],
+            ['Not toil', 'Investigating a novel production incident', 'Requires judgment, diagnosis — not repetitive by nature'],
+            ['Not toil', 'Architecture design for a new service', 'Creative, high-value engineering work'],
+            ['Not toil', 'On-call coverage during a quiet week', 'Availability is not toil — the value is being ready'],
           ]}
         />
+        <CodeBlock language="bash">
+{`# Toil tracking: log time spent on repetitive tasks each sprint
+# Simple approach: team spreadsheet or issue tracker tags
 
-        <HighlightBox type="info">
-          <strong>The complement, not the competition:</strong> Most companies practice DevOps culture with some SRE practices. You don't need to choose one. Use DevOps principles (automation, shared ownership, CI/CD) and add SRE practices (SLOs, error budgets, toil tracking) when you need them.
-        </HighlightBox>
+# High-value toil to eliminate (ranked by frequency * time):
+# 1. Manual certificate renewal → cert-manager with automatic renewal
+# 2. Creating resources for new teams → Crossplane or Backstage IDP
+# 3. Responding to noisy flapping alerts → tune or fix the underlying cause
+# 4. Manual deploy approval clicks → automated canary AnalysisTemplate
+# 5. Secret rotation → ESO + AWS Secrets Manager rotation Lambda
 
-        <NotesBox id="sre-vs-devops" placeholder="Is your team more DevOps or SRE? Do you have SLOs? Who owns reliability — dev teams or a dedicated team?" />
+# cert-manager auto-renewal example — eliminates certificate expiry toil
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: payments-api-tls
+  namespace: payments-prod
+spec:
+  secretName: payments-api-tls
+  renewBefore: 720h  # renew 30 days before expiry — no manual intervention
+  dnsNames:
+    - payments.internal.company.com
+  issuerRef:
+    name: internal-ca
+    kind: ClusterIssuer`}
+        </CodeBlock>
+        <HighlightBox>The 50% toil ceiling is a signal, not just a guideline. If more than half your team's time is spent on toil, you are in a debt spiral: toil grows with the service, engineering time to reduce toil shrinks, so toil grows faster. Breaking out requires a deliberate reliability sprint where the explicit goal is toil reduction — no new features, all effort goes to automation. Most teams need this once per year.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Interview Q&A — SRE Concepts & Error Budgets" icon={'\uD83C\uDFAF'}>
-        <HighlightBox type="info">
-          <strong>Q: Your service has a 99.9% SLO. You've burned 80% of your error budget in week 2. What do you do?</strong><br /><br />
-          "First, I'd analyze <em>what</em> burned the budget — was it one big incident or many small ones? If it's one recurring issue, that's my top priority. I'd communicate to product/management that we're entering a reliability-focused sprint. Practically: (1) halt non-critical deploys, (2) require canary for anything that does deploy, (3) review and fix the top error-budget-burning issues, (4) set up daily error budget check-ins. The error budget exists so we can have this exact conversation — it's not a punishment, it's a signal that reliability needs investment right now."
-        </HighlightBox>
+      <Accordion title="Capacity Planning — Sizing for Reliability" icon={Activity}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Capacity planning determines whether you have enough infrastructure to serve traffic at your SLO. Under-provisioned services fail under load. Over-provisioned services waste money. The goal is to provision at the right size with the right scaling response time.
+        </p>
+        <CodeBlock language="bash">
+{`# Step 1: Measure your service's resource consumption at known load
+# Run a load test (k6, Locust) against staging at production-level RPS
+# Measure: CPU usage, memory usage, P99 latency, error rate
 
-        <HighlightBox type="info">
-          <strong>Q: How do you decide what SLO to set for a new service?</strong><br /><br />
-          "Start with user expectations, not technical aspirations. Ask: what's the consequence if this service is down for 1 hour? For an internal dashboard — 99% is fine (7 hours/month). For a payment API — 99.95% minimum. For a login service — 99.99% because everything depends on it. I also look at what the dependencies can deliver — if your database has a 99.95% SLA, your service mathematically can't be more reliable than that. Start conservative (99.9%), measure for a month, then adjust based on actual performance and business needs."
-        </HighlightBox>
+k6 run --vus 500 --duration 10m - <<EOF
+import http from 'k6/http';
+import { check } from 'k6';
+export default function() {
+  const res = http.get('https://payments-staging.internal.company.com/health');
+  check(res, { 'status 200': (r) => r.status === 200 });
+}
+EOF
 
-        <HighlightBox type="info">
-          <strong>Q: What's the difference between SRE and DevOps? Why would a company choose one over the other?</strong><br /><br />
-          "DevOps is a culture — shared ownership, automation, fast feedback loops. SRE is a specific practice — it takes the DevOps principles and adds quantitative rigor: SLOs, error budgets, toil measurement. Most companies practice DevOps culture and borrow SRE practices. A small startup doesn't need a dedicated SRE team — they need DevOps culture. A company running 50 microservices with millions of users needs the quantitative framework of SRE to make reliability decisions at scale."
-        </HighlightBox>
+# Output: avg latency, P95/P99, error rate at 500 VUs
+# Tells you: what load can the current sizing handle?
 
-        <HighlightBox type="info">
-          <strong>Q: How do you measure toil, and what do you do about it?</strong><br /><br />
-          "I'd track how much time the team spends on repetitive, manual, automatable tasks each sprint — literally log it. If toil is over 30-40%, it's eating into our ability to improve the system. I'd rank toil by frequency times time-per-occurrence, then automate the highest-impact items first. For example, if we spend 2 hours/week manually rotating secrets, that's 100 hours/year — worth investing a few days to set up cert-manager or ESO auto-rotation. The goal: keep toil under 50% of team capacity so there's always time for reliability engineering."
-        </HighlightBox>
+# Step 2: Determine your traffic headroom
+# If current pod sizing handles 1000 rps at P99 < 300ms,
+# and production traffic peaks at 600 rps (Monday morning),
+# headroom = 40% — comfortable for 1.4x traffic growth before scaling
 
-        <NotesBox id="sre-interview" placeholder="Customize these answers with your specific experience. Which SRE practices does your team actually use?" />
+# Step 3: Validate HPA scaling is fast enough
+# HPA default: check every 15 seconds, scale based on last 2 minutes of metrics
+# Problem: 2-minute window means slow response to traffic spikes
+# If traffic doubles in 30 seconds, you need 2+ minutes before HPA adds capacity
+
+# Fast HPA config for latency-sensitive services
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payments-api-hpa
+  namespace: payments-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payments-api
+  minReplicas: 6    # baseline: survive AZ failure with 4 remaining = 66% capacity
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50   # scale at 50% CPU, not 80% — leaves headroom
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30   # scale up quickly
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30      # can double replicas every 30 seconds
+    scaleDown:
+      stabilizationWindowSeconds: 300  # scale down slowly — 5 min stability required`}
+        </CodeBlock>
+        <CompareTable
+          headers={['Sizing Decision', 'Too Low Risk', 'Too High Risk', 'Rule of Thumb']}
+          rows={[
+            ['minReplicas', 'AZ failure takes out too many replicas; cold start latency spike', 'Paying for idle capacity 24/7', 'Set minReplicas so losing one AZ leaves enough capacity for peak traffic'],
+            ['CPU target for HPA', 'Runs hot — latency spikes before HPA responds', 'Scales too aggressively — expensive', '50-60% CPU target for latency-sensitive; 70-80% for batch'],
+            ['Memory limits', 'OOMKills during traffic spikes if app is memory-correlated', 'Over-allocating — fewer pods per node', 'Set to 1.5-2x of P99 actual usage'],
+            ['Node instance type', 'Too small — pods cannot fit; frequent scaling events', 'Too large — wasted capacity when mostly idle', 'Match to pod memory size: 3-5 pods per node ideally'],
+          ]}
+        />
+      </Accordion>
+
+      <Accordion title="SRE vs DevOps — What Actually Differs" icon={Scale}>
+        <CompareTable
+          headers={['Dimension', 'DevOps', 'SRE']}
+          rows={[
+            ['Origin', 'Community movement (2008, Patrick Debois), emerged from conference talks', 'Google internal practice (2003, Ben Treynor), made public 2016 via SRE Book'],
+            ['Primary goal', 'Break down silos between development and operations teams', 'Apply software engineering rigor to operations problems'],
+            ['Reliability approach', 'Automation, CI/CD, shared ownership, fast iteration', 'SLOs + error budgets — quantitative decision framework'],
+            ['Metrics', 'DORA: deploy frequency, lead time, change failure rate, MTTR', 'SLI/SLO burn rates, error budget %, toil %'],
+            ['Team model', 'Dev teams own their services end-to-end; platform team provides tools', 'Dedicated SRE team; can hand back pager to dev if error budget is burned'],
+            ['On-call model', 'You build it, you run it — dev teams on-call for their services', 'SRE on-call for services they support; engagement gated by error budget'],
+            ['Toil', 'Reduce manual work through automation (same principle, less formal)', 'Explicit toil tracking; 50% ceiling is a formal limit'],
+          ]}
+        />
+        <HighlightBox type="tip">In practice, most companies do not choose between DevOps and SRE — they apply DevOps culture (shared ownership, automation, CI/CD) and adopt SRE practices (SLOs, error budgets) when scale demands them. A 10-person startup does not need a dedicated SRE team or formal error budgets. A company running 200 microservices with 50 engineers on-call needs the quantitative framework to make consistent reliability decisions across teams. The SRE book itself says: "SRE is what you get when you treat operations as if it's a software problem."</HighlightBox>
+      </Accordion>
+
+      <Accordion title="Implementing SLOs in Practice — Prometheus and Grafana" icon={Settings}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Defining SLOs on a whiteboard is easy. Making them actionable requires: instrumented services, recording rules that compute the SLI efficiently, burn rate alerts that fire before the budget is exhausted, and dashboards that show the budget in real time. This is what production SLO implementation looks like.
+        </p>
+        <CodeBlock language="yaml">
+{`# Complete SLO implementation for payments-api
+
+# 1. Application instrumentation (Prometheus client in Go)
+# http_requests_total{method, code, path} — counter
+# http_request_duration_seconds{method, path} — histogram
+
+# 2. Prometheus recording rules (compute SLIs efficiently)
+groups:
+  - name: payments-slo-recording
+    interval: 30s
+    rules:
+      # Short window: fast alerting
+      - record: payments_api:availability:rate1h
+        expr: |
+          sum(rate(http_requests_total{app="payments-api",code!~"5.."}[1h]))
+          / sum(rate(http_requests_total{app="payments-api"}[1h]))
+
+      # Long window: SLO measurement
+      - record: payments_api:availability:rate30d
+        expr: |
+          sum(rate(http_requests_total{app="payments-api",code!~"5.."}[30d]))
+          / sum(rate(http_requests_total{app="payments-api"}[30d]))
+
+      # Error budget remaining (1.0 = full budget, 0.0 = exhausted, negative = breached)
+      - record: payments_api:error_budget_remaining
+        expr: |
+          (payments_api:availability:rate30d - 0.999) / (1 - 0.999)
+
+# 3. Multi-window burn rate alerts (Google SRE Workbook pattern)
+  - name: payments-slo-alerts
+    rules:
+      # Page: burning budget fast — will exhaust in 1 hour
+      - alert: PaymentsAPIErrorBudgetBurnCritical
+        expr: |
+          (1 - payments_api:availability:rate1h) > 14.4 * (1 - 0.999)
+          and
+          (1 - payments_api:availability:rate5m) > 14.4 * (1 - 0.999)
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "payments-api burning error budget at 14.4x rate"
+          description: "At current burn rate, monthly budget exhausted in 1 hour"
+          runbook_url: "https://runbooks.internal/payments-slo-burn"
+
+      # Ticket: slower burn — will exhaust in 6 hours
+      - alert: PaymentsAPIErrorBudgetBurnHigh
+        expr: |
+          (1 - payments_api:availability:rate6h) > 6 * (1 - 0.999)
+          and
+          (1 - payments_api:availability:rate30m) > 6 * (1 - 0.999)
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "payments-api burning error budget at 6x rate"
+          description: "Budget will exhaust in ~6 hours if trend continues"`}
+        </CodeBlock>
+        <HighlightBox>Two-window burn rate alerting prevents both false positives and delayed detection. A single short window (5 minutes) is noisy — transient spikes trigger alerts. A single long window (1 hour) is slow — you get paged after significant budget is already burned. Using two windows simultaneously (short + long) ensures the alert fires only when the burn is sustained: the short window confirms it is happening now, the long window confirms it is not a transient spike.</HighlightBox>
       </Accordion>
     </div>
   );
