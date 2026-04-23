@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pocketbase
+  namespace: devops-platform
+spec:
+  selector:
+    app: pocketbase
+  ports:
+    - port: 8090
+      targetPort: 8090
