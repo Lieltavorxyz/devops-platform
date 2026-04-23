@@ -205,7 +205,7 @@ docker compose up             # frontend + pocketbase backend
 | P5-1 | Cloudflare Pages setup — connect repo, build command, env vars | ⬜ (Liel doing manually) |
 | P5-2 | `Dockerfile` (multi-stage: node build → nginx) | ✅ |
 | P5-3 | `nginx.conf` — SPA routing, gzip, security headers | ✅ |
-| P5-4 | GitHub Actions: `deploy.yml` deploys to Cloudflare Pages on merge to main | ✅ |
+| P5-4 | CI: `ci.yml` runs lint + test + build on every PR and push to main | ✅ |
 | P5-5 | PocketBase on k3s — `k8s/pocketbase/` manifests (Deployment, Service, PVC, Ingress) | ✅ |
 | P5-6 | ArgoCD Application — `argocd/pocketbase.yaml` syncs `k8s/pocketbase/` to k3s | ✅ |
 | P5-7 | Custom domain: `devops.lieltavor.com` DNS → Cloudflare Pages | ⬜ (Liel doing manually) |
@@ -236,8 +236,8 @@ docker compose up             # frontend + pocketbase backend
 | # | Task | Status |
 |---|------|--------|
 | P6-1 | DNS: CNAME `devops.lieltavor.com` → Cloudflare Pages (done in P5-7) | ⬜ |
-| P6-2 | Platform env var: `VITE_PORTFOLIO_URL=https://lieltavor.com` in Cloudflare Pages | ⬜ |
-| P6-3 | Portfolio env var: `VITE_PLATFORM_URL=https://devops.lieltavor.com` in portfolio deploy | ⬜ |
+| P6-2 | Platform env vars in Cloudflare Pages dashboard → Settings → Environment Variables: `VITE_PORTFOLIO_URL`, `VITE_PLATFORM_URL`, `VITE_POCKETBASE_URL` | ⬜ |
+| P6-3 | Portfolio env var: `VITE_PLATFORM_URL=https://devops.lieltavor.com` in portfolio's Cloudflare Pages env vars | ⬜ |
 | P6-4 | Add "DevOps Platform" card/link in portfolio-site repo | ⬜ |
 | P6-5 | Verify `src/config.ts` URLS resolve correctly in prod build | ⬜ |
 | P6-6 | Smoke test: portfolio → platform → back, no broken links | ⬜ |
