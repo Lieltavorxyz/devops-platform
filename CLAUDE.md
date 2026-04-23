@@ -73,8 +73,10 @@ devops-platform/
     App.jsx               ← root router
     main.jsx
   backend/                ← PocketBase config + collections schema
+  k8s/
+    pocketbase/           ← Deployment, Service, PVC, Ingress for k3s
   scripts/                ← KB auto-update Python scripts (RSS → MDX)
-  argocd/                 ← ApplicationSet for k3s deploy
+  argocd/                 ← ArgoCD Application pointing to k8s/pocketbase/
   agents/                 ← agent definition files (this dir)
   index.html
   package.json
@@ -200,13 +202,13 @@ docker compose up             # frontend + pocketbase backend
 **Agent: DevOps (Opus)**
 | # | Task | Status |
 |---|------|--------|
-| P5-1 | Cloudflare Pages setup — connect repo, build command, env vars | ⬜ |
-| P5-2 | `Dockerfile` (multi-stage: node build → nginx) | ⬜ |
-| P5-3 | `nginx.conf` — SPA routing, gzip, security headers | ⬜ |
-| P5-4 | GitHub Actions: lint + build + test + Lighthouse CI | ⬜ |
-| P5-5 | PocketBase deploy — Fly.io or Hetzner k3s | ⬜ |
-| P5-6 | ArgoCD ApplicationSet — deploy platform via own templates (k3s) | ⬜ |
-| P5-7 | Custom domain: `devops.lieltavor.com` DNS → Cloudflare Pages | ⬜ |
+| P5-1 | Cloudflare Pages setup — connect repo, build command, env vars | ⬜ (Liel doing manually) |
+| P5-2 | `Dockerfile` (multi-stage: node build → nginx) | ✅ |
+| P5-3 | `nginx.conf` — SPA routing, gzip, security headers | ✅ |
+| P5-4 | GitHub Actions: `deploy.yml` deploys to Cloudflare Pages on merge to main | ✅ |
+| P5-5 | PocketBase on k3s — `k8s/pocketbase/` manifests (Deployment, Service, PVC, Ingress) | ✅ |
+| P5-6 | ArgoCD Application — `argocd/pocketbase.yaml` syncs `k8s/pocketbase/` to k3s | ✅ |
+| P5-7 | Custom domain: `devops.lieltavor.com` DNS → Cloudflare Pages | ⬜ (Liel doing manually) |
 | P5-8 | Smoke test production deploy | ⬜ |
 
 ---

@@ -28,6 +28,7 @@ jobs:
         env:
           VITE_PORTFOLIO_URL: ${{ vars.VITE_PORTFOLIO_URL }}
           VITE_PLATFORM_URL: ${{ vars.VITE_PLATFORM_URL }}
+          VITE_POCKETBASE_URL: ${{ vars.VITE_POCKETBASE_URL }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
