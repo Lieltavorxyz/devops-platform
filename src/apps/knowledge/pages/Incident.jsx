@@ -1,215 +1,314 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
 import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import { AlertTriangle, Search, FileText, Activity, RefreshCw, Terminal } from 'lucide-react';
 
 export default function Incident() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83D\uDEA8'} Reliability & Operations</div>
+        <div className="tool-badge">Reliability & Operations</div>
         <h1>Incident Response</h1>
-        <p>On-call runbooks, root cause analysis frameworks, postmortem culture, and real debugging stories. The skills that separate "I know tools" from "I keep production running."</p>
+        <p>Incident detection, triage methodology, the full debugging sequence for common failure modes, postmortem structure, and how to design systems that make the next incident shorter.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'Problem It Solves',
-          body: 'When production breaks at 3 AM, you need a repeatable process — not heroics. Incident response frameworks reduce MTTR by giving engineers a clear playbook: detect, triage, mitigate, communicate, then fix root cause later. Without this, every outage is chaos.'
+          title: 'Mitigate First, Investigate Later',
+          body: 'The job during an incident is to restore service, not to find root cause. Root cause analysis happens in the postmortem, after users are unblocked. The fastest path to recovery is usually rollback — you already know the previous version worked. Every minute spent debugging during an active incident is a minute users are experiencing the failure. Document what you observe as you go so postmortem reconstruction is accurate.'
         },
         {
-          title: 'Why It Matters in Interviews',
-          body: 'Senior DevOps interviews test how you think under pressure. "Walk me through debugging a production outage" is the most common open-ended question. They want to see systematic thinking, not random guessing.'
-        },
-        {
-          title: 'The Core Principle',
-          body: 'Mitigate first, investigate later. Your first job is to stop the bleeding — rollback, scale up, redirect traffic. Root cause analysis happens in the postmortem, not during the incident. Optimizing for MTTR over MTTF.'
-        },
-        {
-          title: 'What Good Looks Like',
-          body: 'A team with mature incident response has: clear severity levels, automated alerting with runbooks linked, an incident commander role, blameless postmortems, and action items that actually get completed.'
+          title: 'MTTD vs MTTR vs MTTF',
+          body: 'Mean Time To Detect (MTTD): how long between failure occurring and alert firing. Improved by better alerting and lower thresholds. Mean Time To Recover (MTTR): how long from alert to service restored. Improved by runbooks, faster rollback, and practiced incident response. Mean Time To Failure (MTTF): how long the system runs before the next failure. Improved by reducing deployment risk, better testing, and addressing postmortem action items. Most teams focus on MTTR first because it directly reduces user impact duration.'
         }
       ]} />
 
-      <Accordion title="On-Call Runbook Framework" icon={'\uD83D\uDCCB'} defaultOpen={true}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          A runbook is a step-by-step guide for responding to a specific alert. Good runbooks reduce MTTR because engineers don't waste time figuring out <em>what to check</em> — they follow the playbook.
-        </p>
-
-        <HighlightBox type="tip">
-          <strong>Runbook structure:</strong> Every runbook should answer 4 questions: (1) What triggered this alert? (2) What's the impact? (3) What do I check first? (4) How do I mitigate immediately?
-        </HighlightBox>
-
-        <p style={{fontSize:13, color:'var(--text)', margin:'12px 0'}}><strong>Example: Pod CrashLoopBackOff runbook</strong></p>
-
-        <CodeBlock>{`# Step 1: Identify the failing pod
-kubectl get pods -n <namespace> | grep CrashLoop
-
-# Step 2: Check recent logs (current crash + previous crash)
-kubectl logs <pod-name> -n <namespace> --tail=100
-kubectl logs <pod-name> -n <namespace> --previous --tail=100
-
-# Step 3: Describe the pod — check events, exit codes, resource limits
-kubectl describe pod <pod-name> -n <namespace>
-
-# Key things to look for:
-# - Exit code 137 = OOMKilled (need more memory)
-# - Exit code 1 = Application error (check logs)
-# - Exit code 143 = SIGTERM (graceful shutdown failed)
-# - ImagePullBackOff = wrong image tag or registry auth
-
-# Step 4: Check if it's a recent deployment
-kubectl rollout history deployment/<deploy-name> -n <namespace>
-
-# Step 5: Mitigate — rollback if recent deployment caused it
-kubectl rollout undo deployment/<deploy-name> -n <namespace>`}</CodeBlock>
-
-        <HighlightBox type="warn">
-          <strong>Common gotcha:</strong> Engineers jump straight to <code>kubectl logs</code> without checking <code>--previous</code>. If the pod already crashed and restarted, the current logs are from the new (possibly healthy) instance. The crash logs are in <code>--previous</code>.
-        </HighlightBox>
-
+      <Accordion title="Incident Severity Levels and Response Protocol" icon={AlertTriangle} defaultOpen={true}>
         <CompareTable
-          headers={['Severity', 'Definition', 'Response Time', 'Example']}
+          headers={['Severity', 'Criteria', 'Response Time', 'Who Gets Paged', 'Communication']}
           rows={[
-            ['<span class="tag red">SEV1</span>', 'Complete service outage or data loss', '&lt; 15 min', 'All pods down, DB unreachable, 5xx for all users'],
-            ['<span class="tag yellow">SEV2</span>', 'Degraded service, partial impact', '&lt; 30 min', 'High latency, one AZ down, some features broken'],
-            ['<span class="tag green">SEV3</span>', 'Minor issue, workaround exists', '&lt; 4 hours', 'Staging broken, non-critical job failing, cosmetic bug'],
+            ['SEV1 — Critical', 'Full service down, data loss, security breach, >50% error rate', '<5 minutes acknowledge, <15 min first update', 'On-call + team lead + management', 'Dedicated incident channel, status page updated every 15 min'],
+            ['SEV2 — Major', 'Significant degradation, one feature broken, 10-50% error rate or 3x latency', '<15 minutes', 'On-call + team lead if not resolving in 30 min', 'Incident channel, status page if customer-visible'],
+            ['SEV3 — Minor', 'Partial degradation, workaround exists, single user affected', '<2 hours', 'On-call only', 'Team Slack thread, no status page update'],
+            ['SEV4 — Low', 'Non-production issue, cosmetic, no user impact', 'Business hours', 'Ticket only', 'Jira/Linear ticket'],
           ]}
         />
+        <HighlightBox type="tip">Incident commander pattern: for SEV1/SEV2, designate one person as incident commander whose job is coordination, not debugging. They: write in the incident channel, update the status page, bring in additional responders, run the timeline. The technical responders focus entirely on investigation. Without this separation, incident channels become chaotic and status page updates get forgotten while everyone is deep in logs.</HighlightBox>
+        <CodeBlock language="bash">
+{`# First 60 seconds of an incident — the scope question
+# Is this affecting one pod, one deployment, one namespace, or the whole cluster?
 
-        <NotesBox id="incident-oncall" placeholder="What on-call rotations have you been part of? What tools did you use for alerting (PagerDuty, OpsGenie)? What was your typical first response?" />
+# Cluster-wide health — quick overview
+kubectl get nodes
+kubectl get pods -A | grep -v Running | grep -v Completed
+
+# If specific service is paged:
+kubectl get pods -n payments-prod -l app=payments-api
+kubectl describe deployment payments-api -n payments-prod | grep -A5 "Conditions:"
+
+# Recent events across namespace (last 5 minutes)
+kubectl get events -n payments-prod --sort-by='.lastTimestamp' | tail -20
+
+# Service endpoint health — is there at least one healthy backend?
+kubectl get endpoints payments-api -n payments-prod
+# Empty Addresses with Addresses: <none> = all pods failing readiness probe`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="5-Whys Root Cause Analysis" icon={'\uD83D\uDD0D'}>
+      <Accordion title="Full Debugging Sequence — CrashLoopBackOff" icon={Search}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          The 5-Whys technique traces an incident back from symptom to systemic root cause. The goal is to find the <em>process</em> failure, not the <em>person</em> failure.
+          CrashLoopBackOff means a container is crashing and Kubernetes is applying exponential backoff before restarting it again. The backoff maxes out at 5 minutes. The debugging sequence below works for any crash scenario.
         </p>
+        <CodeBlock language="bash">
+{`# Step 1: Which pods are failing and since when?
+kubectl get pods -n payments-prod -l app=payments-api -o wide
+# Look for: RESTARTS count, STATUS (CrashLoopBackOff), NODE placement
 
-        <HighlightBox type="info">
-          <strong>Real example: API returning 502 errors</strong>
-        </HighlightBox>
+# Step 2: Exit code tells you the failure category
+kubectl describe pod payments-api-7d8f9b-xxxx -n payments-prod
+# Events section at bottom — most recent events first
+# Key exit codes:
+# Exit Code 0   — process exited cleanly (config issue, wrong entrypoint)
+# Exit Code 1   — application error (unhandled exception, startup failure)
+# Exit Code 137 — killed by SIGKILL, usually OOMKilled
+# Exit Code 143 — killed by SIGTERM (terminationGracePeriod exceeded)
 
-        <ul className="item-list">
-          <li><span className="bullet">{'\u0031\uFE0F\u20E3'}</span> <span className="label">Why?</span> The API pods were returning 502 to the load balancer.</li>
-          <li><span className="bullet">{'\u0032\uFE0F\u20E3'}</span> <span className="label">Why?</span> The pods were OOMKilled and restarting, causing brief windows with no healthy endpoints.</li>
-          <li><span className="bullet">{'\u0033\uFE0F\u20E3'}</span> <span className="label">Why?</span> A new feature introduced a memory leak — each request allocated a buffer that was never freed.</li>
-          <li><span className="bullet">{'\u0034\uFE0F\u20E3'}</span> <span className="label">Why?</span> The feature was merged without a load test, so the leak wasn't caught before production.</li>
-          <li><span className="bullet">{'\u0035\uFE0F\u20E3'}</span> <span className="label">Why?</span> The team had no automated performance testing in the CI pipeline, and the code review didn't include memory profiling.</li>
-        </ul>
+# Step 3: Crash logs from the PREVIOUS container run
+# The current container is the new restart — it may be healthy or mid-crash
+kubectl logs payments-api-7d8f9b-xxxx -n payments-prod --previous --tail=200
+# If previous logs are empty: container crashed before writing anything
+# → check init container logs, check container startup command
 
-        <HighlightBox type="tip">
-          <strong>Root cause:</strong> Missing performance/memory testing in CI pipeline. <strong>Action items:</strong> (1) Add memory limit alerting in Grafana, (2) Add load testing stage to CI, (3) Set up OOMKill alerts with runbook links.
-        </HighlightBox>
+# Step 4: Are all replicas crashing or just some?
+# If only one: node-specific issue (disk full, hardware, eviction)
+# If all: code issue, config issue, dependency unavailable
+kubectl get pods -n payments-prod -l app=payments-api -o wide
+# Check NODE column — all on same node? Different nodes?
 
-        <HighlightBox type="warn">
-          <strong>Anti-pattern:</strong> Stopping at "Why #3" — the code bug. That's the <em>proximate</em> cause. The real question is: what process allowed this bug to reach production? That's where you find systemic improvements.
-        </HighlightBox>
+# Step 5: Node health if pods are on same node
+kubectl describe node ip-10-0-1-100.ec2.internal
+# Look for: Conditions (MemoryPressure, DiskPressure), Taints, Allocatable vs Requests
 
-        <NotesBox id="incident-rca" placeholder="Have you led or participated in RCA sessions? What technique did your team use? Did action items actually get prioritized?" />
+# Step 6: Recent changes — did a deployment trigger this?
+kubectl rollout history deployment/payments-api -n payments-prod
+# Check ArgoCD UI or:
+kubectl describe deployment payments-api -n payments-prod | grep Image`}
+        </CodeBlock>
+        <CompareTable
+          headers={['Exit Code', 'Meaning', 'What to Check', 'Mitigation']}
+          rows={[
+            ['137 + OOMKilled in events', 'Container exceeded memory limit and was killed', 'memory usage trend in Grafana, --previous logs for memory spike', 'Raise limits.memory; check for memory leak'],
+            ['1 — application error', 'Unhandled exception at startup or runtime', '--previous logs for stack trace', 'Rollback deployment; fix the bug'],
+            ['143 — SIGTERM', 'Graceful shutdown took longer than terminationGracePeriodSeconds', 'App shutdown logic, database connection close', 'Increase terminationGracePeriodSeconds; fix shutdown handler'],
+            ['0 — exited cleanly', 'Process ran and exited — should be a long-running service', 'Entrypoint command, process supervision', 'Fix CMD/ENTRYPOINT; wrap in process manager if needed'],
+            ['CreateContainerConfigError in events', 'Missing ConfigMap or Secret referenced in pod spec', 'kubectl describe pod — which volume or env var is missing', 'Create the missing Secret/ConfigMap; check ESO sync status'],
+            ['ImagePullBackOff', 'Cannot pull container image', 'Image tag exists in ECR? ECR auth on node?', 'Fix image reference; check IRSA for node pull permissions'],
+          ]}
+        />
+        <HighlightBox type="warn">The most common mistake: checking current logs instead of previous logs. When a pod is CrashLoopBackOff, the current container is the new restart after the crash. Its logs may show a healthy startup or just the beginning of the next crash. The crash reason is in <code>kubectl logs --previous</code>, which shows the terminated container's output. If --previous returns nothing, the container crashed before writing any logs — check init containers and the event log for the exact failure.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Postmortem Format & Culture" icon={'\uD83D\uDCC4'}>
+      <Accordion title="Production Latency Spike — Debugging Sequence" icon={Activity}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          A postmortem is a written document produced after an incident. It captures what happened, why, and what changes prevent recurrence. The key cultural principle: <strong>blameless</strong>.
+          Latency spikes are harder than crashes because the service is still responding — just slowly. The debugging approach is structured around the USE method (Utilization, Saturation, Errors) for each component in the request path.
         </p>
+        <CodeBlock language="bash">
+{`# Step 1: Characterize the latency spike
+# Is it all endpoints or specific ones? (route-level metrics in Grafana)
+# Is it all pods or specific ones? (per-pod latency metrics)
+# When did it start? (correlate with deployments, cronjobs, traffic spikes)
 
-        <CodeBlock>{`# Postmortem Template
+# Step 2: Check CPU throttling — CFS throttling causes latency without OOMKill
+kubectl top pods -n payments-prod
+# High CPU usage? Check throttle ratio in Prometheus:
+# sum(rate(container_cpu_cfs_throttled_seconds_total[5m])) by (pod)
+#   / sum(rate(container_cpu_cfs_periods_total[5m])) by (pod)
+# > 0.25 means pod is throttled 25% of the time — latency impact is severe
 
-## Incident Summary
-Title: API Gateway 502 Errors — 2026-03-15
-Severity: SEV1
-Duration: 47 minutes (14:23 - 15:10 UTC)
-Impact: ~30% of API requests failed, affecting checkout flow
+# Step 3: Check database
+# Most latency spikes trace back to slow DB queries or connection pool exhaustion
+# For RDS: check CloudWatch → Enhanced Monitoring → Active connections, CPU
+# For self-managed: kubectl exec into DB pod, check pg_stat_activity (Postgres)
+kubectl exec -it postgres-0 -n db -- psql -U postgres -c \
+  "SELECT pid, now() - pg_stat_activity.query_start AS duration, query, state
+   FROM pg_stat_activity WHERE state != 'idle' ORDER BY duration DESC LIMIT 20;"
 
-## Timeline
-14:23 — PagerDuty alert: 5xx rate > 5% on api-gateway
-14:25 — On-call engineer acknowledges, starts investigation
-14:30 — Identified: pods OOMKilled after deploy at 14:15
-14:35 — Decision: rollback deployment
-14:38 — Rollback initiated via ArgoCD
-14:45 — New pods healthy, error rate dropping
-15:10 — All metrics back to baseline, incident closed
+# Step 4: Check connection pool saturation
+# If app uses a connection pool (PgBouncer, HikariCP), is it full?
+# Prometheus metrics: hikaricp_connections_active, hikaricp_connections_pending
+# Pending connections accumulating = pool is saturated = requests queue up
+
+# Step 5: Distributed tracing
+# If you have Jaeger or Tempo, find a slow trace and identify which span is slow
+# This points directly to the slow component: DB, external API, internal service
+
+# Step 6: Check if it's a downstream service
+# Is payments-api slow because fraud-service (which it calls) is slow?
+kubectl logs -n payments-prod -l app=payments-api --since=5m | grep -i "timeout\|slow\|error"
+
+# Step 7: Node-level issues
+# CPU steal time on EC2 = noisy neighbor (happens on shared hardware)
+kubectl exec -it payments-api-xxxx -n payments-prod -- top
+# %st in CPU line = steal time — if >5%, escalate to AWS Support or move to dedicated`}
+        </CodeBlock>
+        <HighlightBox>Latency spikes after a deployment that does not roll back: the deployment may have triggered a side effect that persists even after rollback. Common examples: (1) DB schema migration ran — old code cannot use new schema, so rollback re-introduces a different error. (2) Cache invalidation — new code flushed a large cache on startup, causing all requests to be cache misses temporarily. (3) Connection storm — rolling restart of 50 pods all opening new DB connections simultaneously, saturating the connection limit. These require forward-fixing, not rolling back.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="Postmortem Structure and Blameless Culture" icon={FileText}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          A postmortem is a structured document produced within 48-72 hours of a significant incident. Its purpose is to capture what happened accurately while memory is fresh, and to drive systemic improvements that reduce the probability or impact of the next incident.
+        </p>
+        <CodeBlock language="markdown">
+{`# Postmortem: payments-api 502 Spike — 2026-04-15
+
+## Summary
+payments-api returned 502 errors to ~35% of requests for 23 minutes.
+Cause: memory leak in v2.4.1 triggered OOMKills across all pods.
+Impact: Checkout was degraded. ~8,000 failed payment attempts.
+
+## Timeline (all times UTC)
+14:23 — Automated alert: 5xx rate > 5% on payments-api (threshold: 1%)
+14:25 — On-call engineer acknowledges PagerDuty alert
+14:27 — Opens incident channel #inc-2026-04-15-payments
+14:30 — Identified: multiple pods in CrashLoopBackOff after OOMKill
+14:32 — Correlated with v2.4.1 deployment at 14:15
+14:33 — Decision: rollback to v2.4.0
+14:35 — ArgoCD rollback initiated (git revert + push to config repo)
+14:38 — New pods from v2.4.0 starting up
+14:44 — Error rate back to 0%, all pods Running
+14:46 — All-clear posted in incident channel
+15:30 — Postmortem draft started
 
 ## Root Cause
-Memory leak in new feature (unbounded cache growth)
-No memory limits set on the deployment (limits.memory was missing)
+v2.4.1 introduced an in-memory cache in the product lookup service that
+was not bounded. Under production load (~500 rps), the cache grew
+unboundedly, consuming memory until the OOMKill threshold was reached.
+The feature worked in staging at <50 rps load.
+
+## Contributing Factors
+1. No memory limits on the payments-api Deployment (missing from Helm values)
+2. Staging load test uses 10% of production traffic — didn't reveal the leak
+3. No memory trend alert — only OOMKill alert existed (fires after the kill)
+
+## What Went Well
+- Alert fired within 3 minutes of first OOMKill
+- On-call identified deployment correlation quickly
+- ArgoCD made rollback straightforward (1-minute operation)
 
 ## Action Items
-[ ] Add memory limits to all deployments (owner: platform team, P0)
-[ ] OPA policy to reject pods without resource limits (owner: SRE, P1)
-[ ] Load test stage in CI pipeline (owner: dev team, P2)
-[ ] OOMKill alert → runbook link in PagerDuty (owner: SRE, P1)`}</CodeBlock>
-
-        <HighlightBox type="info">
-          <strong>Blameless culture means:</strong> The postmortem focuses on <em>system</em> failures, not <em>human</em> failures. "The engineer deployed bad code" is not a root cause. "Our CI pipeline didn't catch the memory leak, and our deployment had no resource limits" <em>is</em> a root cause.
-        </HighlightBox>
-
-        <HighlightBox type="tip">
-          <strong>Interview tip:</strong> When asked about postmortems, mention the blameless principle and that action items should have owners, priorities, and deadlines. Mention that you track completion of action items — many teams write postmortems but never follow up.
-        </HighlightBox>
-
-        <NotesBox id="incident-postmortem" placeholder="Have you written or participated in postmortems? Does your team have a template? Do action items actually get done?" />
-      </Accordion>
-
-      <Accordion title="Real Incident Debugging: CrashLoopBackOff Deep Dive" icon={'\uD83D\uDC1B'}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          The most common interview scenario: "Production is down, pods are CrashLooping. Walk me through your debugging process step by step."
-        </p>
-
-        <HighlightBox type="info">
-          <strong>Systematic debugging flow — the order matters:</strong>
-        </HighlightBox>
-
+| Item | Owner | Priority | Due |
+|------|-------|----------|-----|
+| Add memory limits to all Deployments | Platform | P0 | 2026-04-17 |
+| OPA policy: reject pods without resource limits | SRE | P0 | 2026-04-17 |
+| Add memory growth trend alert (warn before OOMKill) | SRE | P1 | 2026-04-22 |
+| Increase staging load test to 50% of prod traffic | Dev | P1 | 2026-04-30 |
+| Add bounded cache with LRU eviction to payments-api | Dev | P0 | 2026-04-18 |`}
+        </CodeBlock>
+        <HighlightBox>Blameless culture means the postmortem identifies system and process failures, not individual failures. "The engineer deployed without testing" is not a root cause — it is a symptom. The systemic question is: why did the system allow an untested change to reach production? The answer is usually missing automation (no load tests in CI, no resource limit enforcement, no canary deployment). Engineers make mistakes in every organization; the difference is whether the system catches those mistakes before they impact users.</HighlightBox>
         <ul className="item-list">
-          <li><span className="bullet">{'\u0031\uFE0F\u20E3'}</span> <span className="label">Scope the blast radius:</span> <code>kubectl get pods -A | grep -v Running</code> — Is it one pod, one deployment, one namespace, or cluster-wide? This tells you if it's app-level or infrastructure-level.</li>
-          <li><span className="bullet">{'\u0032\uFE0F\u20E3'}</span> <span className="label">Check the events:</span> <code>kubectl describe pod &lt;name&gt;</code> — Look at Events section at the bottom. OOMKilled? ImagePullBackOff? FailedScheduling? Each points to a different root cause.</li>
-          <li><span className="bullet">{'\u0033\uFE0F\u20E3'}</span> <span className="label">Read the logs:</span> <code>kubectl logs &lt;pod&gt; --previous</code> — The crash reason is in the <em>previous</em> container's logs. Current container may already be in init.</li>
-          <li><span className="bullet">{'\u0034\uFE0F\u20E3'}</span> <span className="label">Check recent changes:</span> Was there a deployment? A config change? A secret rotation? <code>kubectl rollout history</code> and check ArgoCD recent syncs.</li>
-          <li><span className="bullet">{'\u0035\uFE0F\u20E3'}</span> <span className="label">Check the node:</span> <code>kubectl describe node &lt;node&gt;</code> — Is the node under memory/disk pressure? Are there taints that shouldn't be there?</li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Action item quality:</span> Good action items are specific, assigned to one owner, have a due date, and are tracked in a project tracker (not just the postmortem document). "Improve testing" is not an action item. "Add k6 load test to CI that runs at 50% prod traffic level with a P99 latency threshold" is an action item.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Postmortem review cadence:</span> Publish the draft within 24 hours of the incident closing. Hold a 30-minute review meeting where stakeholders can challenge the timeline and root cause. Finalize and share broadly. Review action item completion at the next team retrospective — postmortems that produce forgotten action items are security theater.</div>
+          </li>
         </ul>
-
-        <CompareTable
-          headers={['Symptom', 'Likely Cause', 'Quick Fix', 'Permanent Fix']}
-          rows={[
-            ['Exit code 137', 'OOMKilled — container exceeded memory limit', 'Increase <code>limits.memory</code>', 'Profile app memory, fix leak, set appropriate limits'],
-            ['Exit code 1', 'Application error — uncaught exception', 'Rollback deployment', 'Fix the bug, add error handling, add integration tests'],
-            ['Exit code 143', 'SIGTERM — graceful shutdown timeout', 'Increase <code>terminationGracePeriodSeconds</code>', 'Ensure app handles SIGTERM properly'],
-            ['ImagePullBackOff', 'Wrong image tag or registry auth', 'Fix image reference', 'Pin image digests, validate in CI'],
-            ['CreateContainerConfigError', 'Missing ConfigMap or Secret', 'Create the missing resource', 'Add ESO sync, validate deps before deploy'],
-          ]}
-        />
-
-        <HighlightBox type="warn">
-          <strong>Trap in interviews:</strong> Don't jump to "I'd check the logs." Start with scoping: "First, I'd understand the blast radius — is it one pod or many? That tells me whether to look at the application or the infrastructure."
-        </HighlightBox>
-
-        <NotesBox id="incident-debugging" placeholder="What's a real CrashLoopBackOff or production incident you debugged? What was the root cause? How long did it take?" />
       </Accordion>
 
-      <Accordion title="Interview Q&A — Failure Scenarios & Incident Response" icon={'\uD83C\uDFAF'}>
-        <HighlightBox type="info">
-          <strong>Q: You get paged at 2 AM. Your service is returning 5xx errors. Walk me through your first 10 minutes.</strong><br /><br />
-          "First 60 seconds: I check the alert details — which service, what error rate, when it started. I pull up Grafana dashboards for that service — request rate, error rate, latency, pod health. Within 2-3 minutes I'm correlating: did a deployment go out recently? (check ArgoCD history). Is it all pods or just some? (scope the blast radius). If I see a recent deploy correlates with the spike, my first move is rollback — mitigate now, investigate later. If it's not deploy-related, I check dependencies: is the database healthy? Are external APIs timing out? I'd also check node health — are nodes NotReady? Is there a cluster-level event? Throughout this, I'm posting updates in the incident channel every 5 minutes so the team has visibility."
-        </HighlightBox>
+      <Accordion title="Runbook Design — What Makes Them Actually Useful" icon={Terminal}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          A runbook is only useful if an on-call engineer who did not write the service can follow it at 3 AM under pressure. That standard should drive every design decision: concrete commands, not abstract steps; current expected output, so the engineer knows what success looks like; and explicit decision trees for ambiguous situations.
+        </p>
+        <CodeBlock language="markdown">
+{`# Runbook: payments-api High Error Rate (SEV1/SEV2)
 
-        <HighlightBox type="info">
-          <strong>Q: A deployment went out and now latency has increased 3x. But the rollback didn't fix it. What do you do?</strong><br /><br />
-          "If rollback didn't fix it, the deployment wasn't the root cause — it was a red herring or just a trigger. I'd widen the investigation: (1) Check downstream dependencies — is the database slow? Are there lock contention issues? (2) Check if a dependent service also deployed. (3) Look at infrastructure — did an AZ have issues? Is there a noisy neighbor on the node? (4) Check resource metrics at the node level — CPU steal time can indicate EC2 host issues. (5) Look at connection pool exhaustion — maybe the deploy caused a connection storm that saturated the DB, and rollback didn't release those connections. The key insight: rollback doesn't undo <em>side effects</em> like DB connection leaks or cache invalidation."
-        </HighlightBox>
+## Alert
+Alert name: payments_api_5xx_high
+Fires when: 5xx rate > 5% for 2 minutes
 
-        <HighlightBox type="info">
-          <strong>Q: How do you decide between rolling back and pushing a hotfix forward?</strong><br /><br />
-          "Rollback when: the previous version was stable and the issue is clearly caused by the new code. It's the fastest path to mitigation — you already know the old version works. Push forward when: rollback is risky (e.g., a DB migration already ran and the old code can't work with the new schema), or the fix is trivial and well-understood. My default bias is toward rollback because it's proven-safe, and I investigate the root cause once users are unblocked."
-        </HighlightBox>
+## Quick triage (2 minutes)
 
-        <HighlightBox type="info">
-          <strong>Q: Tell me about a time you were involved in a production incident. What happened and what did you learn?</strong><br /><br />
-          "This is your story to fill in — use the notes box below. Structure it as: (1) What was the impact, (2) How did I discover it, (3) What was my debugging process, (4) What was the root cause, (5) What did we change to prevent recurrence. Keep it to 2 minutes when speaking."
-        </HighlightBox>
+### Check pod health
+kubectl get pods -n payments-prod -l app=payments-api
+# Expected: all Running with 0-1 restarts
+# If CrashLoopBackOff: → go to Section A (crash debugging)
+# If all Running: → go to Section B (runtime degradation)
 
-        <NotesBox id="incident-story" placeholder="Fill in a real production incident story: What broke? How did you find out? What did you do? What was the root cause? What changed after?" />
+## Section A: Pods Crashing
+
+1. Get crash reason:
+   kubectl describe pod <pod-name> -n payments-prod
+   kubectl logs <pod-name> -n payments-prod --previous --tail=100
+
+2. Check exit code:
+   - Exit 137 (OOMKilled): raise limits.memory to 2x current value → see "Scale Resources"
+   - Exit 1 (app error): → check for recent deployment → rollback if yes
+
+3. Rollback if deployment-related:
+   # In ArgoCD UI: Application → History → Rollback to previous revision
+   # Or via git: revert the image tag change in k8s-config repo → push → ArgoCD auto-syncs
+
+## Section B: Pods Running but Errors
+
+1. Check if specific endpoint is failing (route-level metrics in Grafana):
+   Dashboard: "payments-api" → panel "Error rate by endpoint"
+
+2. Check downstream dependencies:
+   - RDS: CloudWatch → payments-db → DatabaseConnections + CPUUtilization
+   - fraud-service: kubectl get pods -n payments-prod -l app=fraud-service
+
+3. If downstream is healthy, check application logs for error pattern:
+   kubectl logs -n payments-prod -l app=payments-api --since=10m | grep ERROR | sort | uniq -c | sort -rn
+
+## Escalation
+- Not resolving in 15 minutes: page team lead
+- Data loss suspected: page VP Engineering
+- Security incident suspected: page Security team + follow security runbook`}
+        </CodeBlock>
+        <HighlightBox type="tip">Link runbooks from PagerDuty/Alertmanager alert annotations so the on-call engineer has the runbook URL in the alert notification. Runbooks stored in a wiki that nobody remembers to check are not useful. Alertmanager annotation example: <code>annotations.runbook_url: "https://runbooks.internal/payments-api-high-error-rate"</code>. Measure runbook effectiveness by tracking whether on-call engineers report using them — if they are not being used, the runbook is too abstract or too long.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="5-Whys and Systemic Root Cause Analysis" icon={RefreshCw}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          The 5-Whys technique iteratively asks "why" to move from symptom to systemic root cause. The goal is to reach a level of causation where a process change prevents recurrence — not just the specific bug that caused this incident.
+        </p>
+        <CodeBlock language="text">
+{`Example: payments-api returned 502 errors for 23 minutes
+
+Why did payments-api return 502 errors?
+→ Pods were OOMKilled, leaving no healthy endpoints during restart.
+
+Why were pods OOMKilled?
+→ A memory leak in v2.4.1 caused unbounded memory growth under load.
+
+Why did a memory leak reach production?
+→ The code was reviewed and merged without performance testing at production load.
+
+Why was there no performance testing?
+→ The CI pipeline has no load test stage, and staging is only run at 10% of production traffic.
+
+Why is staging only 10% of prod traffic?
+→ Load test infrastructure was never built; the assumption was staging traffic was sufficient.
+
+Root cause: No load testing infrastructure or process means memory leaks
+and performance regressions are not caught until they hit production.
+
+Action items:
+1. Build k6 load test suite targeting production-level RPS (immediate)
+2. Add load test stage to CI pipeline running against staging (1 week)
+3. Add memory growth alert that fires before OOMKill threshold (2 days)
+4. Add resource limits to all Deployments (immediate)
+
+Note: Stopping at "Why #2 — there was a memory leak" produces an action
+item of "don't write memory leaks." Stopping at "Why #4 — no load tests"
+produces infrastructure and process improvements that catch the next
+different memory leak before it reaches production.`}
+        </CodeBlock>
+        <HighlightBox type="warn">5-Whys has limits. Complex incidents with multiple contributing causes do not have a single root cause — they have a chain of failures where any single link being stronger would have prevented the outage. For complex incidents, use a fault tree or fishbone diagram to capture all contributing factors simultaneously, not just one linear chain. The goal is always to find interventions — system changes that increase resilience — not a single cause to assign blame.</HighlightBox>
       </Accordion>
     </div>
   );

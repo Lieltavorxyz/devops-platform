@@ -1,36 +1,36 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
-import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import CompareTable from '../components/CompareTable';
+import { Lock, Key, Shield, Database, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export default function Secrets() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83D\uDD11'} Security</div>
+        <div className="tool-badge">Security</div>
         <h1>Secrets Management</h1>
-        <p>How to store, inject, rotate, and audit secrets across Kubernetes clusters and cloud accounts — without committing anything to Git.</p>
+        <p>How to store, inject, rotate, and audit secrets in Kubernetes without committing values to Git — ESO, IRSA, Vault, and what each approach actually does internally.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'The Problem',
-          body: "Apps need credentials (DB passwords, API keys, TLS certs). Hardcoding them in code or config files is a breach waiting to happen. Even base64 in a K8s Secret is not encrypted \u2014 it's just encoded. The question is: who holds the keys, where are secrets stored, and how do they reach the pod?"
+          title: 'The Core Problem',
+          body: 'Applications need credentials. Hardcoding them in code or Docker images is a breach waiting to happen. Kubernetes Secrets are only base64-encoded — any engineer with Secret read access sees the value. The question is: who holds the keys, where are secrets stored, how do they reach pods, and how do you rotate them without downtime?'
         },
         {
-          title: 'The Core Tradeoff',
-          body: "More security control = more operational complexity. AWS Secrets Manager is easy but expensive at scale. Vault is powerful but you own the ops. GCP/Azure have their own native stores. ESO gives you a Kubernetes-native sync layer on top of any backend."
+          title: 'The Design Tradeoff',
+          body: 'AWS Secrets Manager is easy to set up but costs $0.40 per secret per month and is AWS-only. HashiCorp Vault is powerful (dynamic secrets, PKI, SSH) but you own the operations. External Secrets Operator (ESO) is a Kubernetes-native sync layer on top of either backend. For most AWS shops, ESO + Secrets Manager is the right starting point.'
         }
       ]} />
 
-      <Accordion title="ESO (External Secrets Operator) \u2014 How It Actually Works" icon={'\uD83C\uDFD7\uFE0F'} defaultOpen={true}>
+      <Accordion title="External Secrets Operator — How It Works" icon={RefreshCw} defaultOpen={true}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          ESO is a Kubernetes operator that syncs secrets from an external backend (AWS SM, Vault, GCP Secret Manager, Azure Key Vault) into native K8s Secrets. Your pods just consume a regular K8s Secret — they don't know ESO exists.
+          ESO is a Kubernetes operator that syncs secrets from an external backend into native Kubernetes Secrets. Your pods consume a regular K8s Secret — they have no idea ESO exists. ESO reconciles on a schedule and when the source secret changes.
         </p>
-        <HighlightBox type="tip">Real flow: SecretStore (auth config) + ExternalSecret (what to sync) {'\u2192'} ESO operator calls backend API {'\u2192'} creates/updates K8s Secret {'\u2192'} pod mounts it as env or volume</HighlightBox>
-        <CodeBlock>{`# ClusterSecretStore — auth config (one per cluster, all namespaces)
+        <CodeBlock language="yaml">
+{`# ClusterSecretStore — authenticates to the backend (one per cluster)
 apiVersion: external-secrets.io/v1beta1
 kind: ClusterSecretStore
 metadata:
@@ -41,103 +41,248 @@ spec:
       service: SecretsManager
       region: us-east-1
       auth:
-        jwt:                        # IRSA — pod identity, not static keys
+        jwt:                         # IRSA — uses ServiceAccount identity, no static keys
           serviceAccountRef:
             name: external-secrets
             namespace: external-secrets
 ---
-# ExternalSecret — what to pull and where to put it
+# ExternalSecret — what to pull from the backend and where to put it
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: datadog-keys
-  namespace: monitoring
+  name: payments-db
+  namespace: payments-prod
 spec:
-  refreshInterval: 1h
+  refreshInterval: 1h                # ESO re-syncs every hour
   secretStoreRef:
     name: aws-secrets-manager
     kind: ClusterSecretStore
   target:
-    name: datadog-keys           # K8s Secret name created
-    creationPolicy: Owner
+    name: payments-db-credentials    # K8s Secret that ESO creates/manages
+    creationPolicy: Owner            # ESO owns this Secret — deletes it if ExternalSecret is deleted
   data:
-    - secretKey: api-key          # key in the K8s Secret
+    - secretKey: POSTGRES_HOST       # key name in K8s Secret
       remoteRef:
-        key: prod/datadog          # SM secret name
-        property: api_key          # field inside the JSON secret`}</CodeBlock>
-        <HighlightBox type="warn">Real gotcha: SM charges per secret per month (~$0.40). If you create one K8s ExternalSecret per app credential, costs explode. Pattern: one SM secret per app/env with multiple key-value fields. ESO's <code>property</code> field lets you extract individual keys from the JSON blob.</HighlightBox>
-        <NotesBox id="secrets-eso" placeholder="How did you set up ESO? Which auth method? What naming convention for SM secrets? Any cost or permission issues?" />
+        key: prod/payments/database  # SM secret name
+        property: host               # field inside the JSON blob
+    - secretKey: POSTGRES_PASSWORD
+      remoteRef:
+        key: prod/payments/database
+        property: password
+  # Alternatively, sync the entire JSON blob as a single key:
+  # dataFrom:
+  #   - extract:
+  #       key: prod/payments/database`}
+        </CodeBlock>
+        <HighlightBox type="warn">AWS Secrets Manager charges $0.40 per secret per month regardless of access frequency. If you create one SM secret per credential (e.g., separate secrets for DB host, DB port, DB password, DB username), costs scale linearly. The correct pattern: one SM secret per app/env as a JSON blob with multiple key-value pairs. ESO's <code>property</code> field extracts individual keys. 5 credentials in one secret = $0.40, not $2.00.</HighlightBox>
+        <CodeBlock language="yaml">
+{`# Cost-efficient pattern: one SM secret per service with all credentials
+# SM secret name: prod/payments/all
+# SM secret value: {
+#   "db_host": "...", "db_password": "...", "api_key": "...", "jwt_secret": "..."
+# }
+
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: payments-all-secrets
+  namespace: payments-prod
+spec:
+  refreshInterval: 30m
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: payments-secrets
+  dataFrom:
+    - extract:
+        key: prod/payments/all   # extracts ALL key-value pairs from this secret`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="IRSA for ESO \u2014 The Auth Chain" icon={'\uD83D\uDD10'}>
+      <Accordion title="IRSA for ESO — The Authentication Chain" icon={Key}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          ESO needs AWS credentials to read from Secrets Manager. IRSA (IAM Roles for Service Accounts) is the right pattern — no static keys, uses the pod's identity via OIDC.
+          ESO needs AWS credentials to read from Secrets Manager. IRSA is the correct mechanism — ESO's ServiceAccount identity (via OIDC federation) is exchanged with AWS STS for temporary credentials. No static access keys anywhere in the cluster.
         </p>
-        <HighlightBox>The chain: EKS OIDC provider {'\u2192'} IAM role trust policy allows the ESO ServiceAccount {'\u2192'} ESO pod gets temp AWS creds via STS {'\u2192'} calls secretsmanager:GetSecretValue</HighlightBox>
-        <CodeBlock>{`// IAM policy on the IRSA role (scoped to specific secrets)
-{
-  "Effect": "Allow",
-  "Action": [
-    "secretsmanager:GetSecretValue",
-    "secretsmanager:DescribeSecret"
-  ],
-  "Resource": "arn:aws:secretsmanager:us-east-1:123456789:secret:prod/*"
-}`}</CodeBlock>
-        <CodeBlock>{`# ESO ServiceAccount with IRSA annotation
+        <CodeBlock language="hcl">
+{`# Terraform: IRSA role for ESO
+resource "aws_iam_role" "eso" {
+  name = "external-secrets-operator"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.eks.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${aws_iam_openid_connect_provider.eks.url}:sub" =
+            "system:serviceaccount:external-secrets:external-secrets"
+          "${aws_iam_openid_connect_provider.eks.url}:aud" =
+            "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "eso_sm_access" {
+  name = "eso-secrets-manager"
+  role = aws_iam_role.eso.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:ListSecretVersionIds"
+      ]
+      # Scope to specific path — not * on all secrets
+      Resource = "arn:aws:secretsmanager:us-east-1:123456789:secret:prod/*"
+    }]
+  })
+}`}
+        </CodeBlock>
+        <CodeBlock language="yaml">
+{`# ESO ServiceAccount with IRSA annotation
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: external-secrets
   namespace: external-secrets
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/eso-role`}</CodeBlock>
-        <HighlightBox type="warn">Common failures: (1) Trust policy has wrong OIDC provider URL — copy from EKS console exactly. (2) IAM policy uses secret name not ARN — SM ARN has a random suffix, use wildcard suffix or full ARN. (3) ESO pods not restarted after annotation change — pods cache the OIDC token, restart them.</HighlightBox>
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/external-secrets-operator`}
+        </CodeBlock>
+        <HighlightBox type="warn">Common ESO failures: (1) Trust policy has wrong OIDC URL — copy the exact URL from the EKS cluster's OIDC issuer field. (2) SM secret ARN has a random suffix (e.g., <code>prod/payments/database-AbCdEf</code>). IAM policy with exact ARN fails. Use a wildcard: <code>arn:aws:secretsmanager:us-east-1:123:secret:prod/*</code>. (3) ESO pod not restarted after ServiceAccount annotation update — the pod caches the token, restart it after adding the annotation.</HighlightBox>
       </Accordion>
 
-      <Accordion title="HashiCorp Vault \u2014 Architecture & Key Concepts" icon={'\uD83C\uDF10'}>
+      <Accordion title="HashiCorp Vault — Architecture and Key Concepts" icon={Lock}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Vault is the most powerful self-hosted secrets platform. You own the ops, but you get fine-grained auth methods, dynamic secrets, PKI, SSH signing, and a full audit trail.
+          Vault is the most capable open-source secrets platform. It supports dynamic secrets, PKI certificate management, SSH signing, and has a fine-grained audit trail. The operational cost is that you run it.
         </p>
-        <HighlightBox type="tip">Key concept: Vault's seal/unseal mechanism protects the master key. In production, use auto-unseal with AWS KMS so pods don't need to manually unseal after a restart. Raft storage backend eliminates Consul as a dependency.</HighlightBox>
         <CompareTable
-          headers={['Concept', 'What It Is', 'Analogy']}
+          headers={['Vault Concept', 'What It Is', 'Key Detail']}
           rows={[
-            ['<strong>Auth Method</strong>', 'How a client proves identity — Kubernetes (JWT), AWS IAM, OIDC, AppRole. Vault validates and returns a token.', 'The login screen \u2014 verify who you are before you get a key'],
-            ['<strong>Secret Engine</strong>', 'Plugins that serve different secret types: KV (static), database (dynamic), AWS (IAM creds), PKI (certs).', 'Different vending machines, each stocked with a different type of credential'],
-            ['<strong>Dynamic Secrets</strong>', 'Vault creates unique short-lived credentials on-demand (DB user, AWS access key) with a TTL. Auto-revoked at expiry.', 'Hotel room keycard \u2014 valid for your stay, useless after checkout'],
-            ['<strong>Policies</strong>', 'HCL rules that grant read/write access to specific secret paths. Attached to tokens/roles.', 'IAM policy but for vault paths instead of AWS resources'],
+            ['<strong>Auth Method</strong>', 'How a client proves identity to get a token', 'Kubernetes auth method: pod presents SA JWT, Vault validates against cluster OIDC endpoint, returns Vault token'],
+            ['<strong>Secret Engine</strong>', 'Plugin that serves a type of secret', 'KV v2 for static secrets, database engine for dynamic DB creds, PKI for certificates, AWS engine for IAM credentials'],
+            ['<strong>Dynamic Secrets</strong>', 'Vault generates unique short-lived credentials on demand', 'Each pod gets its own DB user with a 1-hour TTL — auto-revoked on expiry. No shared long-lived passwords.'],
+            ['<strong>Lease</strong>', 'Time-to-live on a secret — Vault tracks all active leases', 'When a pod dies, its lease can be revoked immediately, making the DB user invalid'],
+            ['<strong>Policy</strong>', 'HCL rules granting read/write access to specific paths', '"path \\"secret/data/payments/*\\" { capabilities = [\\"read\\"] }"'],
+            ['<strong>Seal/Unseal</strong>', 'Master key protection mechanism', 'Use AWS KMS auto-unseal in production — no manual unseal required after pod restarts'],
           ]}
         />
-        <HighlightBox type="warn">Migration pattern from AWS SM to Vault: (1) Deploy Vault HA cluster with Raft + KMS auto-unseal. (2) Configure K8s auth method per cluster. (3) Import existing SM secrets into Vault KV. (4) Update ExternalSecret CRs to use Vault provider. (5) Run both in parallel for one sprint to verify. (6) Remove SM IAM access.</HighlightBox>
+        <CodeBlock language="yaml">
+{`# Vault Kubernetes auth method — pods authenticate with their SA token
+# vault write auth/kubernetes/config \
+#   kubernetes_host="https://kubernetes.default.svc" \
+#   kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+# ESO SecretStore using Vault as backend
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: vault
+spec:
+  provider:
+    vault:
+      server: "https://vault.vault.svc.cluster.local:8200"
+      path: "secret"        # KV v2 mount path
+      version: "v2"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "external-secrets"   # Vault role that allows ESO SA
+          serviceAccountRef:
+            name: external-secrets
+            namespace: external-secrets`}
+        </CodeBlock>
+        <HighlightBox type="tip">Vault dynamic secrets for databases: instead of rotating a shared DB password, Vault's database engine creates a unique PostgreSQL user for each requester with a TTL (e.g., 1 hour). When the TTL expires, Vault automatically drops the user. No shared credentials, no rotation ceremony, and leaked credentials expire quickly. This is the gold standard for database access.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Comparison: ESO Backends" icon={'\uD83D\uDCCA'}>
+      <Accordion title="Secret Rotation — Zero-Downtime Patterns" icon={RefreshCw}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Rotating a secret without downtime requires the application to handle the transition period where old and new credentials are both valid.
+        </p>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">ESO auto-refresh:</span> ESO checks the backend on <code>refreshInterval</code> and updates the K8s Secret when the value changes. But the pod does not automatically reload environment variables when a Secret updates — it still holds the old value in memory. Solutions: (1) Use Secret as a mounted volume (file on disk) — application reads it fresh each time. (2) Use the stakater/reloader operator to trigger rolling restarts when Secrets change. (3) Application-level periodic credential refresh.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">DB password rotation:</span> AWS Secrets Manager can rotate RDS passwords automatically via Lambda. The rotation function creates a new password, updates the DB, tests the new credentials, and then marks the old version deprecated. During the transition window, both old and new are valid. ESO syncs the new value. Applications using connection pools get the new password on reconnect.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">API key rotation:</span> Most external APIs support a transition period where two API keys are valid simultaneously. Create the new key, update SM, let ESO sync, wait for pods to reload (via reloader), then revoke the old key. Never revoke the old key before pods have the new one.</div>
+          </li>
+        </ul>
+        <CodeBlock language="yaml">
+{`# stakater/reloader: trigger rolling restart when Secret changes
+# Add annotation to Deployment:
+metadata:
+  annotations:
+    secret.reloader.stakater.com/reload: "payments-db-credentials"
+    # comma-separated list of secrets that trigger a restart when they change
+spec:
+  template:
+    spec:
+      volumes:
+        - name: secrets
+          secret:
+            secretName: payments-db-credentials
+      containers:
+        - name: app
+          volumeMounts:
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+          # Application reads /run/secrets/POSTGRES_PASSWORD at startup
+          # When Secret changes, reloader triggers rolling restart`}
+        </CodeBlock>
+      </Accordion>
+
+      <Accordion title="Comparison — ESO Backends" icon={Database}>
         <CompareTable
           headers={['Backend', 'Strengths', 'Weaknesses', 'Best For']}
           rows={[
-            ['<strong>AWS Secrets Manager</strong>', 'Native AWS, easy IRSA auth, rotation built-in', '$0.40/secret/month, per-region, AWS-only', 'AWS-only shops, small-medium secret count'],
-            ['<strong>HashiCorp Vault</strong>', 'Powerful dynamic secrets, PKI, SSH, open source', 'You run it \u2014 HA setup is complex, you own the ops', 'Large orgs, multi-cloud, need dynamic secrets'],
-            ['<strong>GCP Secret Manager</strong>', 'Native GCP, easy IAM auth, automatic replication, low cost', 'GCP-only, less powerful than Vault, no dynamic secrets', 'GCP-native shops or multi-cloud with GCP as primary'],
-            ['<strong>Sealed Secrets</strong>', 'Simple, GitOps-native, free, works offline', 'No rotation, controller holds master key, no audit trail', 'Small teams, simple GitOps setups'],
+            ['<strong>AWS Secrets Manager</strong>', 'Native AWS, easy IRSA auth, rotation Lambda built-in, versioning', '$0.40/secret/month, per-region, AWS lock-in', 'AWS-only shops, straightforward rotation needs'],
+            ['<strong>AWS Parameter Store (SSM)</strong>', 'Free for standard params (limit 10KB), IRSA auth, hierarchical paths', 'No automatic rotation, less powerful than SM', 'Configuration values, non-sensitive settings, cost-sensitive'],
+            ['<strong>HashiCorp Vault</strong>', 'Dynamic secrets, PKI, SSH, open source, multi-cloud, fine-grained audit', 'You run it — HA setup is complex, upgrades are manual', 'Large orgs, multi-cloud, need dynamic secrets or PKI'],
+            ['<strong>GCP Secret Manager</strong>', 'Native GCP, IAM auth, automatic global replication', 'GCP-only, no dynamic secrets', 'GCP shops or multi-cloud with GCP primary'],
+            ['<strong>Sealed Secrets</strong>', 'Simple, GitOps-native, free, offline', 'Manual rotation, controller holds master key, no audit trail', 'Small teams, simple setups, strong GitOps requirement'],
           ]}
         />
       </Accordion>
 
-      <Accordion title="Interview Q&A" icon={'\uD83D\uDCAC'}>
-        <ul className="item-list">
-          <li>
-            <span className="bullet">{'\u2753'}</span>
-            <div><span className="label">"You can't commit secrets to Git. How do you handle secrets in a GitOps workflow?"</span> — "We commit ExternalSecret CRs to Git — they reference secrets by path, not by value. ESO operator reads the CR, calls AWS Secrets Manager using IRSA, and creates the K8s Secret in-cluster. The actual values never touch Git. For bootstrapping ESO itself, we had a manual step to seed the initial IRSA role and ESO install — that's an inherent chicken-and-egg in GitOps."</div>
-          </li>
-          <li>
-            <span className="bullet">{'\u2753'}</span>
-            <div><span className="label">"What's the difference between static and dynamic secrets?"</span> — "Static secrets are fixed values stored somewhere — you create them once, store them, and rotate manually or on a schedule. Dynamic secrets are generated fresh on-demand with a short TTL — the platform creates a unique DB user or AWS key for each requester, then auto-revokes it. Dynamic secrets eliminate long-lived credentials entirely, which is the gold standard for high-security environments."</div>
-          </li>
-          <li>
-            <span className="bullet">{'\u2753'}</span>
-            <div><span className="label">"How would you migrate from AWS SM to HashiCorp Vault across 3 accounts?"</span> — "Deploy Vault HA (3 nodes, Raft backend, KMS auto-unseal) in a shared-services account. Configure the Kubernetes auth method per cluster — ESO presents the ServiceAccount JWT, Vault validates against the cluster's OIDC endpoint. Import existing SM secrets into Vault KV. Update ExternalSecret CRs to use the Vault ESO provider. Run both in parallel for a sprint, then cut over and remove SM IAM access from the ESO roles."</div>
-          </li>
-        </ul>
+      <Accordion title="Kubernetes Secret Encryption at Rest" icon={Shield}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Kubernetes Secrets are stored in etcd. By default in many Kubernetes distributions, they are stored as base64 — not encrypted. EKS encrypts etcd at rest using AES-256 by default. But you can add application-level envelope encryption for an additional layer.
+        </p>
+        <CodeBlock language="bash">
+{`# Enable EKS envelope encryption for secrets with a KMS key
+aws eks create-cluster \
+  --name prod-eks \
+  --encryption-config '[{
+    "provider": {"keyArn": "arn:aws:kms:us-east-1:123456789:key/abc-123"},
+    "resources": ["secrets"]
+  }]'
+
+# Or update existing cluster
+aws eks update-cluster-config \
+  --name prod-eks \
+  --encryption-config '[{
+    "provider": {"keyArn": "arn:aws:kms:us-east-1:123456789:key/abc-123"},
+    "resources": ["secrets"]
+  }]'`}
+        </CodeBlock>
+        <HighlightBox>With envelope encryption enabled: the Kubernetes API server generates a data encryption key (DEK) per secret, encrypts the secret with the DEK, then encrypts the DEK with your KMS CMK. The secret in etcd is encrypted with a key that only KMS can decrypt. Even if someone extracts the etcd data files, secrets are unreadable without KMS access. EKS CloudTrail logs every KMS Decrypt call — full auditability of who accessed which secret.</HighlightBox>
+        <HighlightBox type="warn">Adding envelope encryption to an existing cluster with many Secrets triggers a re-encryption of every Secret in etcd. This puts load on the API server and KMS. Do this during a maintenance window for large clusters. Also: the KMS key rotation and key policy must be carefully managed — lose access to the KMS key and you cannot read any K8s Secrets.</HighlightBox>
       </Accordion>
     </div>
   );

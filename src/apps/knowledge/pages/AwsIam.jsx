@@ -1,133 +1,93 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
-import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import CompareTable from '../components/CompareTable';
+import { Shield, Lock, Key, ArrowRightLeft, Globe, AlertTriangle } from 'lucide-react';
 
 export default function AwsIam() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\uD83D\uDD10'} AWS IAM</div>
-        <h1>IAM & Security</h1>
-        <p>Least privilege, IRSA, cross-account patterns, and practical IAM design.</p>
+        <div className="tool-badge">AWS IAM</div>
+        <h1>IAM and Security</h1>
+        <p>How IAM authorization is evaluated across layers, cross-account role assumption, permission boundaries, SCPs, and IRSA internals.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'The Problem',
-          body: 'AWS IAM is the most powerful attack surface in your infrastructure. A misconfigured role can mean full account compromise. The challenge is enforcing least privilege at scale \u2014 across 3+ accounts, dozens of services, and CI/CD pipelines \u2014 without creating IAM that\'s so restrictive it blocks legitimate work.'
+          title: 'The Layered Authorization Model',
+          body: 'AWS IAM evaluates authorization across multiple layers in order: SCPs (org-wide ceiling that cannot be overridden) → Permission Boundaries (cap on what an identity can ever do) → Identity Policies (what is explicitly allowed) → Resource Policies (what the resource allows). An explicit deny at any layer wins. Understanding which layer to use for which control is what separates good IAM design from security theater.'
         },
         {
-          title: 'The Layered Model',
-          body: 'IAM is enforced at multiple layers: SCPs (org-level, can\'t be overridden), Permission Boundaries (account-level cap), IAM Policies (identity-level allow/deny), Resource Policies (resource-level). Understanding which layer to use for which control is the difference between good and bad IAM design.'
+          title: 'The Least Privilege Problem',
+          body: 'Least privilege is obvious in principle but hard at scale — across 3+ accounts, dozens of services, and CI/CD pipelines running automatically. The failure mode is over-permission: wildcards in actions, wildcards in resources, no conditions. The cost is discovered only when a compromise happens.'
         }
       ]} />
 
-      <Accordion title="Cross-Account Role Assumption — Trust Policies & External ID" icon={'\uD83D\uDD04'} defaultOpen={true}>
+      <Accordion title="Cross-Account Role Assumption" icon={ArrowRightLeft} defaultOpen={true}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Cross-account access is the foundation of multi-account AWS architectures. A role in Account B trusts Account A to assume it. The calling entity in Account A uses STS AssumeRole to get temporary credentials.
+          Cross-account access is the foundation of multi-account AWS architectures. An IAM role in Account B has a trust policy that allows Account A to assume it. Entities in Account A call STS AssumeRole to get temporary credentials for Account B.
         </p>
-        <CodeBlock>{`// Role in prod account (Account B) — trust policy allows tooling account to assume it
+        <CodeBlock language="json">
+{`// Trust policy on the role in Account B (prod)
+// Only allows a specific CI role from Account A (tooling) to assume it
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
     "Principal": {
-      "AWS": "arn:aws:iam::111111111111:role/ci-deploy-role"
-    },                              // only the CI role, not the whole account
+      "AWS": "arn:aws:iam::111111111111:role/github-actions-ci-role"
+    },
     "Action": "sts:AssumeRole",
     "Condition": {
       "StringEquals": {
-        "sts:ExternalId": "prod-deploy-2024"   // confused deputy protection
+        "sts:ExternalId": "prod-deploy-abc123"
+      },
+      "StringLike": {
+        "aws:RequestedRegion": "us-east-1"
       }
     }
   }]
-}`}</CodeBlock>
-        <HighlightBox>Confused deputy attack: Without ExternalId, any entity that trusts your tooling account could trick it into assuming your prod role. ExternalId is a shared secret {'\u2014'} only legitimate callers know it. Required when your role is assumed by third-party services (e.g., Datadog, Terraform Cloud, external CI).</HighlightBox>
-        <CodeBlock>{`# Assuming the role from the tooling account
-aws sts assume-role \\
-  --role-arn arn:aws:iam::999999999999:role/prod-deploy-role \\
-  --role-session-name ci-deploy-session \\
-  --external-id prod-deploy-2024
+}`}
+        </CodeBlock>
+        <CodeBlock language="bash">
+{`# Assuming the cross-account role from the tooling account
+aws sts assume-role \
+  --role-arn arn:aws:iam::999999999999:role/prod-deploy-role \
+  --role-session-name github-actions-deploy-${GITHUB_RUN_ID} \
+  --external-id prod-deploy-abc123 \
+  --duration-seconds 3600 \
+  --tags Key=Environment,Value=prod Key=Requester,Value=github-actions
 
-# Session tags — propagated into CloudTrail, useful for auditability
-  --tags Key=Environment,Value=prod Key=Requester,Value=github-actions`}</CodeBlock>
-        <HighlightBox type="tip">Session tags for audit: When CI/CD pipelines assume roles, add session tags (--tags) with the pipeline name, environment, and triggering user. These tags appear in CloudTrail logs, making it easy to trace which pipeline deployment touched which resource.</HighlightBox>
-        <NotesBox id="iam-cross-account" placeholder="Did your team use cross-account roles? How was the tooling account structured? Any issues with role assumption or session expiry?" />
+# Parse credentials from the response
+export AWS_ACCESS_KEY_ID=$(...)
+export AWS_SECRET_ACCESS_KEY=$(...)
+export AWS_SESSION_TOKEN=(...)`}
+        </CodeBlock>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">ExternalId — confused deputy protection:</span> Without ExternalId, any entity in Account A that is allowed to call STS could be tricked into assuming your prod role by a malicious third party. ExternalId is a shared secret — only your legitimate CI system knows it. Required when the role is assumed by third-party services (Datadog, Terraform Cloud, external CICD).</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Session naming:</span> Set the session name to something auditable: the GitHub run ID, the pipeline name, the committer's username. This appears in CloudTrail logs as the username, making it easy to trace which pipeline run made which API call.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Session duration:</span> The default is 1 hour. Maximum is 12 hours (set on the role's MaxSessionDuration). For long-running pipelines, either extend the duration or implement token refresh logic. A deploy that exceeds the session duration will fail with an ExpiredTokenException mid-run.</div>
+          </li>
+        </ul>
+        <HighlightBox type="tip">GitHub Actions OIDC federation eliminates the need for static AWS credentials stored as GitHub secrets. The workflow exchanges a GitHub OIDC token directly for AWS credentials via a trust policy. No aws-actions/configure-aws-credentials with stored keys — just role assumption via OIDC. This is the current best practice for CI/CD accessing AWS.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Permission Boundaries — Delegating IAM Without Giving Up Control" icon={'\uD83E\uDDF1'}>
+      <Accordion title="IRSA — Full OIDC Federation Flow" icon={Key}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Permission boundaries set the maximum permissions an IAM entity can have, regardless of what policies are attached. They're the tool you use when you want to let teams create their own IAM roles without being able to escalate beyond a defined scope.
+          IRSA (IAM Roles for Service Accounts) lets Kubernetes pods assume AWS IAM roles without static credentials. The mechanism is OIDC federation: the EKS cluster is an OIDC provider, the pod presents a signed JWT, STS validates it and returns temporary credentials.
         </p>
-        <HighlightBox type="warn">Common misconception: Permission boundaries don't grant permissions {'\u2014'} they only limit them. A role needs both: an attached policy that allows something AND a permission boundary that doesn't deny it. If either side blocks, the action is denied.</HighlightBox>
-        <CodeBlock>{`// Boundary policy — defines the ceiling for any role created in this account
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowComputeAndStorage",
-      "Effect": "Allow",
-      "Action": ["ec2:*", "s3:*", "eks:*", "ecr:*"],
-      "Resource": "*"
-    },
-    {
-      "Sid": "DenyIAMEscalation",
-      "Effect": "Deny",
-      "Action": [
-        "iam:CreateRole",        // can't create new roles
-        "iam:AttachRolePolicy",   // can't attach arbitrary policies
-        "iam:PutRolePolicy"       // can't inline policies
-      ],
-      "Resource": "*"
-    }
-  ]
-}`}</CodeBlock>
-        <HighlightBox type="tip">When to use boundaries: (1) You're giving a developer account admin rights but don't want them to create IAM roles with more permissions than they have. (2) A team creates service roles via Terraform but you need to cap what those roles can do. (3) A third-party vendor gets access {'\u2014'} you want them unable to exfiltrate beyond a defined set of services.</HighlightBox>
-      </Accordion>
-
-      <Accordion title="SCPs — Org-Level Guardrails That Override Everything" icon={'\uD83C\uDFE2'}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Service Control Policies (SCPs) are attached to AWS Organizations OUs or accounts. They define the maximum permissions for everything in that OU {'\u2014'} including the root user. An SCP deny cannot be overridden by any IAM policy in the child account.
-        </p>
-        <CompareTable
-          headers={['Layer', 'Scope', 'Override?', 'Managed By']}
-          rows={[
-            ['<strong>SCP</strong>', 'Entire account / OU', 'Cannot be overridden', 'Org / Platform team'],
-            ['<strong>Permission Boundary</strong>', 'Single IAM entity', 'Overridden by SCP denies', 'Account admin'],
-            ['<strong>IAM Policy</strong>', 'Single IAM identity', 'Constrained by SCP + boundary', 'Team / Terraform'],
-            ['<strong>Resource Policy</strong>', 'Single resource (S3, KMS)', 'Constrained by SCP', 'Resource owner'],
-          ]}
-        />
-        <CodeBlock>{`// SCP: Deny creation of resources outside approved regions
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "DenyNonApprovedRegions",
-    "Effect": "Deny",
-    "NotAction": [         // global services exempt from region check
-      "iam:*", "sts:*", "support:*", "route53:*", "cloudfront:*"
-    ],
-    "Resource": "*",
-    "Condition": {
-      "StringNotIn": {
-        "aws:RequestedRegion": ["eu-west-1", "us-east-1"]
-      }
-    }
-  }]
-}`}</CodeBlock>
-        <HighlightBox type="warn">SCP doesn't apply to management account: The Org root account (management account) is exempt from SCPs. This is why you should use the management account for nothing except org management. All actual workloads go in member accounts.</HighlightBox>
-        <NotesBox id="iam-scps" placeholder="Did your org use SCPs? Which guardrails were enforced? Did SCPs ever block legitimate work and cause a debugging session?" />
-      </Accordion>
-
-      <Accordion title="IRSA Full Flow — OIDC, Trust Policy, Token Exchange" icon={'\uD83E\uDEAA'}>
-        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          IRSA (IAM Roles for Service Accounts) lets a Kubernetes pod assume an AWS IAM role without static credentials. The flow uses OIDC federation {'\u2014'} the pod presents a Kubernetes-signed JWT, AWS STS verifies it against the cluster's OIDC provider, and returns temporary AWS credentials.
-        </p>
-        <HighlightBox>Full IRSA flow: (1) EKS cluster has an OIDC provider registered in IAM. (2) IAM role has a trust policy allowing the ServiceAccount's OIDC identity to assume it. (3) Pod's ServiceAccount is annotated with the IAM role ARN. (4) EKS injects a projected token volume into the pod. (5) AWS SDK calls STS AssumeRoleWithWebIdentity automatically. (6) STS validates the token, returns temp creds (valid 1hr by default).</HighlightBox>
-        <CodeBlock>{`# Step 1: OIDC provider (Terraform — usually handled by the EKS module)
+        <CodeBlock language="hcl">
+{`# Step 1: Create the OIDC provider for the cluster
 data "tls_certificate" "eks" {
   url = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
@@ -138,9 +98,9 @@ resource "aws_iam_openid_connect_provider" "eks" {
   thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
 }
 
-# Step 2: IAM role with trust policy for the ServiceAccount
-resource "aws_iam_role" "s3_reader" {
-  name = "eks-s3-reader"
+# Step 2: Create the IAM role with a trust policy scoped to a specific ServiceAccount
+resource "aws_iam_role" "payments_api" {
+  name = "eks-payments-api-prod"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -152,9 +112,11 @@ resource "aws_iam_role" "s3_reader" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "\${aws_iam_openid_connect_provider.eks.url}:sub" =
-            "system:serviceaccount:my-namespace:my-service-account"
-          "\${aws_iam_openid_connect_provider.eks.url}:aud" =
+          # Must match: system:serviceaccount:<namespace>:<serviceaccount-name>
+          "${aws_iam_openid_connect_provider.eks.url}:sub" =
+            "system:serviceaccount:payments-prod:payments-api"
+          # Prevents tokens meant for other audiences
+          "${aws_iam_openid_connect_provider.eks.url}:aud" =
             "sts.amazonaws.com"
         }
       }
@@ -162,32 +124,257 @@ resource "aws_iam_role" "s3_reader" {
   })
 }
 
-# Step 3: Kubernetes ServiceAccount annotation
-# ---
-# apiVersion: v1
-# kind: ServiceAccount
-# metadata:
-#   name: my-service-account
-#   namespace: my-namespace
-#   annotations:
-#     eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/eks-s3-reader`}</CodeBlock>
-        <HighlightBox type="warn">Most common IRSA failures: (1) AccessDenied on AssumeRoleWithWebIdentity {'\u2014'} trust policy :sub condition doesn't match namespace+SA name exactly (case-sensitive). (2) Pod uses wrong SA {'\u2014'} always set serviceAccountName in Deployment spec. (3) OIDC provider thumbprint is wrong after cert rotation {'\u2014'} breaks all IRSA in the cluster.</HighlightBox>
-        <NotesBox id="iam-irsa" placeholder="How did you set up IRSA? Terraform module or manual? Any debugging sessions for AssumeRoleWithWebIdentity failures?" />
+# Attach the minimal required policy
+resource "aws_iam_role_policy" "payments_api_s3" {
+  name = "payments-api-s3-access"
+  role = aws_iam_role.payments_api.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:PutObject"]
+      Resource = "arn:aws:s3:::payments-receipts-prod/*"
+    }]
+  })
+}`}
+        </CodeBlock>
+        <CodeBlock language="yaml">
+{`# Step 3: Annotate the ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments-api
+  namespace: payments-prod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/eks-payments-api-prod
+    eks.amazonaws.com/token-expiration: "86400"   # 24hr token (default 1hr)`}
+        </CodeBlock>
+        <HighlightBox type="warn">Top 3 IRSA failures: (1) Trust policy :sub condition does not match exactly — it is case-sensitive and must be <code>system:serviceaccount:NAMESPACE:SA-NAME</code>. (2) Deployment does not set <code>serviceAccountName</code> — pod uses the default SA and gets no AWS credentials. (3) OIDC provider thumbprint is wrong after an AWS certificate rotation — breaks all IRSA in the cluster. Regenerate the thumbprint and update the OIDC provider resource.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Architecture Interview Q&A" icon={'\uD83C\uDFAF'}>
-        <HighlightBox>
-          <strong>Q: Design IAM for 3 AWS accounts (dev/staging/prod) with a shared tooling account running CI/CD.</strong><br/><br/>
-          The tooling account hosts CI/CD runners (GitHub Actions OIDC-federated). Each target account has a deploy role that trusts the tooling account's CI role {'\u2014'} with ExternalId for confused deputy protection. In tooling: CI runners have a role with only sts:AssumeRole permissions targeting specific roles in child accounts. No direct service permissions in tooling. In each child account: deploy roles scoped to what the pipeline needs (ecr:*, eks:*, s3:PutObject on deployment bucket only). SCP at OU level: deny region creation outside approved regions, deny disabling GuardDuty/CloudTrail, deny leaving the org. Permission boundaries on all CI-created roles in child accounts. IRSA on EKS workloads: pods get AWS credentials via OIDC federation, no static keys anywhere.
-        </HighlightBox>
-        <HighlightBox>
-          <strong>Q: A developer reports AccessDenied when their pod tries to write to S3. The IAM policy looks correct. What do you check?</strong><br/><br/>
-          IAM is evaluated as: SCP {'\u2192'} Permission Boundary {'\u2192'} Identity Policy {'\u2192'} Resource Policy (S3) {'\u2192'} S3 ACL. Check all five. (1) Is the pod assuming the right IAM role? Run <code>aws sts get-caller-identity</code> from inside the pod {'\u2014'} developers often forget to set serviceAccountName, so pod runs with the node role instead of the IRSA role. (2) Is the IRSA trust policy :sub condition correct? (3) Is there an S3 bucket policy explicitly denying this role? Resource policies with explicit deny override identity policies. (4) Is there an SCP restricting S3 in this region? (5) Does the IAM role have a permission boundary that doesn't include s3:PutObject?
-        </HighlightBox>
-        <HighlightBox>
-          <strong>Q: When would you use a permission boundary vs an SCP for restricting what teams can do?</strong><br/><br/>
-          SCPs are blunt and account-wide {'\u2014'} best for non-negotiable guardrails (no resources outside approved regions, no disabling security tooling, no leaving the org). Set once at OU level. Permission boundaries are role-specific {'\u2014'} best when delegating IAM self-service to a team but constraining blast radius. Example: letting the payments team create their own Lambda execution roles in Terraform, but those roles can't have IAM permissions, can't access another team's S3 buckets. The boundary is attached when the team creates the role, enforced by an SCP that says "you can only create IAM roles if you attach this specific permission boundary".
-        </HighlightBox>
+      <Accordion title="Permission Boundaries — Delegating IAM Without Escalation" icon={Shield}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Permission boundaries set the maximum permissions an IAM identity can have, regardless of what policies are attached. They do not grant permissions — they only cap them. Both the boundary and the identity policy must allow an action for it to succeed.
+        </p>
+        <CodeBlock language="json">
+{`// Boundary policy: teams can create roles for their Lambda functions,
+// but those roles cannot have IAM permissions or access other teams' resources
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowApplicationServices",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*",
+        "dynamodb:*",
+        "sqs:*",
+        "sns:*",
+        "logs:*",
+        "cloudwatch:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyIAMEscalation",
+      "Effect": "Deny",
+      "Action": [
+        "iam:CreateRole",
+        "iam:AttachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:PassRole"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyOtherTeamsResources",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": [
+        "arn:aws:s3:::other-team-*",
+        "arn:aws:dynamodb:*:*:table/other-team-*"
+      ]
+    }
+  ]
+}`}
+        </CodeBlock>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Enforcement pattern:</span> Require teams to attach a specific permission boundary when creating IAM roles. Enforce this via an SCP: "You can only create IAM roles if you attach the <code>standard-developer-boundary</code> permission boundary." Without this SCP, the boundary is voluntary and ineffective.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">The common misconception:</span> Many engineers think attaching a boundary grants permissions. It does not. If the boundary allows S3 but the identity policy does not, S3 is denied. Both must allow. The boundary is a ceiling, not a floor.</div>
+          </li>
+        </ul>
+      </Accordion>
+
+      <Accordion title="Service Control Policies — Org-Level Guardrails" icon={Globe}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          SCPs are attached to AWS Organizations OUs or accounts. They define the maximum permissions for everything in that scope — including the root user of the account. An SCP deny cannot be overridden by any identity or resource policy in a child account.
+        </p>
+        <CompareTable
+          headers={['Layer', 'Scope', 'Can Override?', 'Typical Owner']}
+          rows={[
+            ['<strong>SCP</strong>', 'Entire account or OU', 'Cannot be overridden by anything in child account', 'Platform/security team in management account'],
+            ['<strong>Permission Boundary</strong>', 'Single IAM identity', 'Overridden by SCP denies', 'Account admin or Terraform automation'],
+            ['<strong>IAM Identity Policy</strong>', 'Single IAM user/role', 'Constrained by SCP and boundary', 'Team / service Terraform'],
+            ['<strong>Resource Policy</strong>', 'Single resource (S3, KMS, Lambda)', 'Constrained by SCP', 'Resource owner'],
+          ]}
+        />
+        <CodeBlock language="json">
+{`// SCP: Deny resource creation outside approved regions
+// Apply to all workload OUs — management account is exempt from SCPs
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyNonApprovedRegions",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "sts:*",
+        "support:*",
+        "route53:*",
+        "cloudfront:*",
+        "waf:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotIn": {
+          "aws:RequestedRegion": ["eu-west-1", "us-east-1"]
+        }
+      }
+    },
+    {
+      "Sid": "DenyDisablingSecurityServices",
+      "Effect": "Deny",
+      "Action": [
+        "guardduty:DeleteDetector",
+        "guardduty:DisassociateFromMasterAccount",
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:StopLogging",
+        "config:DeleteDeliveryChannel",
+        "securityhub:DisableSecurityHub"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyLeavingOrganization",
+      "Effect": "Deny",
+      "Action": "organizations:LeaveOrganization",
+      "Resource": "*"
+    }
+  ]
+}`}
+        </CodeBlock>
+        <HighlightBox type="warn">SCPs do not apply to the AWS Organizations management account. This is why you should run no workloads in the management account — only org management tasks. If your prod workloads run in the management account, SCPs provide zero protection. All workloads belong in member accounts.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="IAM Policy Evaluation Logic" icon={Lock}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          When AWS receives an API call, it evaluates a set of policies in a specific order. Understanding this order is essential for debugging AccessDenied errors and for designing effective security controls.
+        </p>
+        <CodeBlock language="bash">
+{`# IAM evaluation order (simplified):
+# 1. Explicit deny in ANY policy? → DENY immediately
+# 2. Is it allowed by an SCP? → if SCP doesn't allow, DENY
+# 3. Is it allowed by a Permission Boundary? → if boundary doesn't allow, DENY
+# 4. Is it allowed by an identity policy (IAM role/user policy)? → if not, DENY
+# 5. Is there a resource policy? → must allow or must allow the account
+# 6. All layers pass → ALLOW
+
+# Debugging AccessDenied — the checklist
+# Step 1: Who is the caller?
+aws sts get-caller-identity
+
+# Step 2: What does the SCP say?
+# Check in AWS Organizations console — SCPs for the account
+
+# Step 3: Does the identity policy allow it?
+aws iam simulate-principal-policy \
+  --policy-source-arn arn:aws:iam::123456789:role/payments-api-role \
+  --action-names s3:GetObject \
+  --resource-arns arn:aws:s3:::my-bucket/my-object
+
+# Step 4: Does the resource policy (S3 bucket policy) deny it?
+aws s3api get-bucket-policy --bucket my-bucket | jq '.Policy | fromjson'
+
+# Step 5: Is there a permission boundary?
+aws iam get-role --role-name payments-api-role \
+  --query 'Role.PermissionsBoundary'`}
+        </CodeBlock>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Explicit deny always wins:</span> A single explicit deny in any policy layer overrides all allows. This is why you can use SCPs and resource policies to add immovable guardrails — even an account admin cannot override an explicit SCP deny.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">The absent policy default:</span> If no policy grants an action, it is denied by default. AWS is deny-by-default. You do not need an explicit deny to block something — just the absence of an allow is sufficient. Explicit denies are needed only when you want to override an allow.</div>
+          </li>
+        </ul>
+      </Accordion>
+
+      <Accordion title="Production IAM Patterns — Multi-Account Architecture" icon={AlertTriangle}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          The standard multi-account pattern: a tooling account for CI/CD, separate accounts for dev/staging/prod, and a management account for org management only.
+        </p>
+        <CodeBlock language="hcl">
+{`# GitHub Actions OIDC → tooling account role → assume prod role
+# In the prod account: role that CI can assume
+resource "aws_iam_role" "ci_deploy_prod" {
+  name = "github-actions-deploy-prod"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = "arn:aws:iam::111111111111:oidc-provider/token.actions.githubusercontent.com"
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+        }
+        StringLike = {
+          # Only the specific repo, only on pushes to main
+          "token.actions.githubusercontent.com:sub" =
+            "repo:myorg/my-service:ref:refs/heads/main"
+        }
+      }
+    }]
+  })
+}
+
+# Policy: only what the CI pipeline needs
+resource "aws_iam_role_policy" "ci_deploy_prod_policy" {
+  name = "ci-deploy-policy"
+  role = aws_iam_role.ci_deploy_prod.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken", "ecr:BatchGetImage",
+                    "ecr:InitiateLayerUpload", "ecr:UploadLayerPart",
+                    "ecr:CompleteLayerUpload", "ecr:PutImage"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["eks:DescribeCluster"]
+        Resource = "arn:aws:eks:us-east-1:999999999999:cluster/prod-eks"
+      }
+    ]
+  })
+}`}
+        </CodeBlock>
+        <HighlightBox type="tip">Scope CI/CD IAM permissions as tightly as possible. A deploy role should have ECR push access, EKS describe access, and nothing else. The Kubernetes RBAC layer (inside the cluster) restricts what the pipeline can do within EKS. Two layers of access control — IAM at the AWS level, RBAC at the Kubernetes level.</HighlightBox>
       </Accordion>
     </div>
   );

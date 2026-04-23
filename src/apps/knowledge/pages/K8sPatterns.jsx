@@ -1,71 +1,76 @@
 import Accordion from '../components/Accordion';
 import ReasoningMap from '../components/ReasoningMap';
-import NotesBox from '../components/NotesBox';
 import HighlightBox from '../components/HighlightBox';
-import CompareTable from '../components/CompareTable';
 import CodeBlock from '../components/CodeBlock';
+import CompareTable from '../components/CompareTable';
+import { Layers, Network, Shield, Lock, Server, Settings } from 'lucide-react';
 
 export default function K8sPatterns() {
   return (
     <div>
       <div className="page-header">
-        <div className="tool-badge">{'\u2638\uFE0F'} Kubernetes</div>
-        <h1>Kubernetes — Patterns & Design</h1>
-        <p>Architectural patterns for multi-tenancy, networking, and operational decisions at scale.</p>
+        <div className="tool-badge">Kubernetes</div>
+        <h1>Kubernetes — Patterns and Design</h1>
+        <p>Multi-tenancy, network isolation, pod security, and the operational decisions that separate a hobby cluster from a production platform.</p>
       </div>
 
       <ReasoningMap cards={[
         {
-          title: 'The Problem',
-          body: "A single K8s cluster serving 20 teams across 3 environments is operationally efficient but a blast radius nightmare. How do you isolate teams from each other, control resource consumption, prevent noisy-neighbour problems, and enforce security posture \u2014 without running a fleet of clusters?"
+          title: 'The Multi-Tenancy Problem',
+          body: 'A single EKS cluster serving 20 teams is operationally efficient but a blast radius nightmare. One team with no resource limits can starve others. One misconfigured pod can reach across namespaces. Getting isolation right requires NetworkPolicy, RBAC, ResourceQuota, and Pod Security Standards all working together.'
         },
         {
-          title: 'The Core Tradeoffs',
-          body: 'Cluster isolation (one cluster per team/env) is safest but expensive and operationally heavy. Namespace isolation inside a shared cluster is cheap but requires NetworkPolicy, RBAC, ResourceQuota, and Pod Security Standards all working together. Most companies land somewhere in between.'
+          title: 'Isolation is Layered',
+          body: 'No single Kubernetes primitive provides complete isolation. NetworkPolicy controls traffic. RBAC controls API access. ResourceQuota controls resource consumption. Pod Security Standards control what pods can do at the OS level. You need all four. Miss one and the isolation leaks.'
         }
       ]} />
 
-      <Accordion title="Namespace Strategy — How to Slice a Cluster" icon={'\uD83C\uDFD7\uFE0F'} defaultOpen={true}>
+      <Accordion title="Namespace Strategy — How to Slice a Cluster" icon={Layers} defaultOpen={true}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          There is no single right answer — the namespace strategy you choose should reflect your team structure, blast radius tolerance, and cost model.
+          The namespace strategy you choose must reflect your blast radius tolerance, team ownership model, and cost of operating multiple clusters. There is no universally right answer.
         </p>
         <CompareTable
-          headers={['Strategy', 'Structure', 'Best For', 'Gotcha']}
+          headers={['Strategy', 'Structure', 'Best For', 'Production Gotcha']}
           rows={[
-            ['Per-environment', 'ns: dev, staging, prod', 'Small teams, &lt;5 services', 'Dev and prod share the same cluster — any cluster-level incident affects prod'],
-            ['Per-team', 'ns: team-a, team-b', 'Platform teams running internal services', 'No env isolation — team-a prod and team-a dev coexist'],
-            ['Per-team-per-env', 'ns: team-a-prod, team-a-staging', 'Mid-size orgs, 5-20 teams', 'Namespace sprawl — hard to manage at 100+ namespaces without HNC'],
-            ['Per-service', 'ns: payments, auth, api-gateway', 'Strict security domains', 'Very fine-grained — RBAC and NetworkPolicy explosion'],
+            ['Per-environment', 'ns: dev, staging, prod', 'Tiny teams, fewer than 5 services', 'Dev and prod share a cluster — any cluster-level issue (etcd pressure, control plane incidents) affects prod'],
+            ['Per-team', 'ns: team-payments, team-auth', 'Internal platform, homogeneous envs', 'Team-a prod and team-a dev coexist — no environment isolation'],
+            ['Per-team-per-env', 'ns: payments-prod, payments-staging', 'Mid-size orgs, 5-20 teams', 'Namespace sprawl becomes hard to manage above 100 namespaces without HNC or a namespace controller'],
+            ['Per-service', 'ns: payments, auth, gateway', 'Strict security domain separation', 'RBAC and NetworkPolicy explosion; management overhead scales with service count'],
           ]}
         />
-        <HighlightBox type="tip">Real-world recommendation: Per-team-per-env is the most common pattern at growth-stage companies. Use a naming convention like <code>&lt;team&gt;-&lt;env&gt;</code> enforced by Terraform. If you have a platform team, they own a separate platform namespace.</HighlightBox>
-        <CodeBlock>{`# Namespace with labels for NetworkPolicy selectors
+        <HighlightBox type="tip">Per-team-per-env with a naming convention like <code>team-env</code> is the most common pattern at growth-stage companies. Enforce the convention in Terraform. Platform team owns a separate <code>platform</code> namespace. Use Hierarchical Namespace Controller (HNC) if namespace sprawl becomes a problem — it lets you create sub-namespaces that inherit policies from a parent.</HighlightBox>
+        <CodeBlock language="yaml">
+{`# Namespace with labels used by NetworkPolicy and Pod Security Standards
 apiVersion: v1
 kind: Namespace
 metadata:
   name: payments-prod
   labels:
     team: payments
-    env: prod
-    # Pod Security Standards label — enforced at namespace level
+    environment: prod
+    # Pod Security Standards enforcement at namespace level
     pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/warn: restricted`}</CodeBlock>
-        <NotesBox id="k8s-namespaces" placeholder="What namespace strategy did your team use? How were namespaces provisioned — manually, Terraform, ArgoCD? Any sprawl issues?" />
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+    # Used by NetworkPolicy selectors
+    kubernetes.io/metadata.name: payments-prod`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="NetworkPolicy — Default-Deny and Surgical Allow" icon={'\uD83C\uDF10'}>
-        <HighlightBox type="warn">Default K8s behaviour: All pods can talk to all pods in the cluster, across namespaces. No NetworkPolicy = fully open mesh. This is fine for dev but a security problem in prod.</HighlightBox>
+      <Accordion title="NetworkPolicy — Default-Deny and Surgical Allow" icon={Network}>
+        <HighlightBox type="warn">Default Kubernetes behavior: all pods can communicate with all pods in the cluster, across any namespace. No NetworkPolicy means a fully open mesh. This is acceptable for development but a security violation in production.</HighlightBox>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          NetworkPolicy is implemented by the CNI (not kube-proxy). On EKS, you need VPC CNI with network policy support enabled — it's not on by default.
+          NetworkPolicy is enforced by the CNI plugin, not kube-proxy. On EKS with VPC CNI, you must enable network policy support explicitly — it is disabled by default. Confirm with <code>kubectl get networkpolicy -A</code> and check if CNI has the network policy feature gate enabled.
         </p>
-        <CodeBlock>{`# Step 1: Default deny-all in the namespace
+        <CodeBlock language="yaml">
+{`# Step 1: Default deny-all in the namespace (essential baseline)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-all
   namespace: payments-prod
 spec:
-  podSelector: {}          # matches ALL pods in this namespace
+  podSelector: {}       # matches ALL pods in namespace
   policyTypes:
     - Ingress
     - Egress
@@ -74,7 +79,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ingress-to-payments
+  name: allow-ingress-nginx
   namespace: payments-prod
 spec:
   podSelector:
@@ -90,7 +95,30 @@ spec:
         - protocol: TCP
           port: 8080
 ---
-# Step 3: Allow DNS (otherwise nothing resolves)
+# Step 3: Allow payments API to call auth service in auth-prod namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-call-auth
+  namespace: payments-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: payments-api
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: auth-prod
+          podSelector:
+            matchLabels:
+              app: auth-service
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Step 4: Allow DNS — never forget this or nothing resolves
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -104,114 +132,148 @@ spec:
         - protocol: UDP
           port: 53
         - protocol: TCP
-          port: 53`}</CodeBlock>
-        <HighlightBox type="warn">Classic gotcha: Apply default-deny, forget the DNS allow rule, every pod stops resolving hostnames. Always add the DNS egress policy.</HighlightBox>
-        <HighlightBox type="tip">Namespace isolation pattern: Use <code>namespaceSelector</code> with label matching — never hardcode namespace names in the policy. This makes policies reusable across envs.</HighlightBox>
+          port: 53`}
+        </CodeBlock>
+        <HighlightBox type="warn">The single most common NetworkPolicy mistake: applying default-deny and forgetting the DNS allow rule. Every pod immediately stops resolving any hostname. The error looks like a network timeout or connection refused, not a DNS error. Always add the DNS egress policy when applying default-deny.</HighlightBox>
+        <HighlightBox type="tip">Use <code>namespaceSelector</code> with label-based matching rather than hardcoding namespace names. This makes policies portable across environments where namespace names may differ. The label <code>kubernetes.io/metadata.name</code> is automatically set by Kubernetes on every namespace and is immutable.</HighlightBox>
       </Accordion>
 
-      <Accordion title="Multi-Tenancy — ResourceQuota, LimitRange & RBAC" icon={'\uD83D\uDC65'}>
+      <Accordion title="ResourceQuota and LimitRange" icon={Settings}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          Three resources work together to create meaningful namespace isolation. Miss any one and the isolation leaks.
+          ResourceQuota caps the total resource consumption of a namespace. LimitRange sets per-container defaults and maximums. Both are needed — one without the other leaves gaps.
         </p>
-        <CodeBlock>{`# ResourceQuota — caps total resource usage in a namespace
+        <CodeBlock language="yaml">
+{`# ResourceQuota: total namespace resource cap
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: team-a-quota
-  namespace: team-a-prod
+  name: payments-quota
+  namespace: payments-prod
 spec:
   hard:
-    requests.cpu: "8"
-    requests.memory: 16Gi
-    limits.cpu: "16"
-    limits.memory: 32Gi
-    pods: "40"
-    services: "10"
+    requests.cpu: "16"
+    requests.memory: 32Gi
+    limits.cpu: "32"
+    limits.memory: 64Gi
+    pods: "50"
+    services: "20"
+    persistentvolumeclaims: "10"
 ---
-# LimitRange — sets defaults and max per-container
+# LimitRange: per-container defaults and bounds
 apiVersion: v1
 kind: LimitRange
 metadata:
-  name: team-a-limits
-  namespace: team-a-prod
+  name: payments-limits
+  namespace: payments-prod
 spec:
   limits:
     - type: Container
-      default:
+      default:           # applied when container has no limits set
         cpu: 500m
         memory: 512Mi
-      defaultRequest:
+      defaultRequest:    # applied when container has no requests set
         cpu: 100m
         memory: 128Mi
-      max:
+      max:               # containers cannot exceed this
         cpu: "4"
         memory: 4Gi
----
-# RBAC — team gets edit access to their namespace only
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: team-a-edit
-  namespace: team-a-prod
-subjects:
-  - kind: Group
-    name: team-a-devs
-    apiGroup: rbac.authorization.k8s.io
-roleRef:
-  kind: ClusterRole
-  name: edit
-  apiGroup: rbac.authorization.k8s.io`}</CodeBlock>
-        <HighlightBox>LimitRange + ResourceQuota interaction: If you have a ResourceQuota but no LimitRange, pods without explicit resource requests will be rejected by the quota. LimitRange fills in the defaults so pods without resource specs still get admitted.</HighlightBox>
-        <NotesBox id="k8s-multitenancy" placeholder="Did your team use ResourceQuotas? Who owned RBAC — platform team or individual teams? Any quota exhaustion incidents?" />
+      min:               # containers must request at least this
+        cpu: 50m
+        memory: 64Mi`}
+        </CodeBlock>
+        <ul className="item-list">
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">ResourceQuota + LimitRange interaction:</span> If you have a ResourceQuota but no LimitRange, pods without explicit resource requests are rejected by the quota controller because it cannot account for their usage. LimitRange fills in defaults so pods without specs still get admitted and counted correctly.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Quota exhaustion debugging:</span> When a pod fails to create with "exceeded quota", check <code>kubectl describe resourcequota -n namespace</code>. It shows current usage vs hard limit for every resource type. Common triggers: someone scaled a deployment to many replicas, or a long-running batch job claimed all PVCs.</div>
+          </li>
+          <li>
+            <span className="bullet">→</span>
+            <div><span className="label">Object count quotas:</span> Beyond CPU and memory, you can quota the number of pods, services, configmaps, secrets, and PVCs. Useful for preventing teams from creating hundreds of secrets or services that degrade the API server's etcd performance.</div>
+          </li>
+        </ul>
       </Accordion>
 
-      <Accordion title="Pod Security Standards — Migration from PSP" icon={'\uD83D\uDD12'}>
+      <Accordion title="Pod Security Standards — Replacing PSP" icon={Lock}>
         <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
-          PodSecurityPolicy (PSP) was deprecated in K8s 1.21 and removed in 1.25. Pod Security Standards (PSS) replaced it — simpler, namespace-scoped, three levels.
+          PodSecurityPolicy (PSP) was deprecated in 1.21 and removed in 1.25. Pod Security Standards (PSS) replaced it with a simpler, three-level, namespace-scoped model. The levels are additive restrictions from least to most secure.
         </p>
         <CompareTable
-          headers={['Level', 'What It Allows', 'Use Case']}
+          headers={['Level', 'What It Allows', 'Blocks', 'Use Case']}
           rows={[
-            ['<strong>Privileged</strong>', 'Anything. No restrictions.', 'System components (CNI plugins, node agents like Datadog, Falco)'],
-            ['<strong>Baseline</strong>', 'Most workloads. Blocks known privilege escalation vectors. No hostPath, no hostNetwork, no privileged containers.', 'Default for application namespaces'],
-            ['<strong>Restricted</strong>', 'Hardened. Must run as non-root, must drop all capabilities, seccompProfile required.', 'High-security workloads, compliance environments'],
+            ['<strong>Privileged</strong>', 'Unrestricted — anything goes', 'Nothing', 'CNI plugins (Cilium, aws-node), node agents (Datadog, Falco)'],
+            ['<strong>Baseline</strong>', 'Most workloads — blocks known privilege escalation paths', 'hostPath volumes, hostNetwork, hostPID, privileged containers', 'Default for application namespaces'],
+            ['<strong>Restricted</strong>', 'Hardened security posture', 'Everything in Baseline plus: must run as non-root, must drop all capabilities, seccompProfile required', 'Payment services, anything handling sensitive data, compliance environments'],
           ]}
         />
-        <CodeBlock>{`# Namespace labels for Pod Security Standards
+        <CodeBlock language="yaml">
+{`# Apply PSS to a namespace via labels
 apiVersion: v1
 kind: Namespace
 metadata:
   name: payments-prod
   labels:
-    # enforce = reject pods that violate
+    # enforce: reject pods that violate the policy
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    # warn = allow but show warning
+    # warn: admit but display warning (useful during migration)
     pod-security.kubernetes.io/warn: restricted
-    pod-security.kubernetes.io/warn-version: latest
-    # audit = allow but log
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/audit-version: latest`}</CodeBlock>
-        <HighlightBox type="tip">Migration path from PSP: (1) Add warn + audit labels — see what would break. (2) Fix violating workloads. (3) Switch to enforce. Never jump straight to enforce on existing namespaces.</HighlightBox>
-        <HighlightBox type="warn">Restricted gotcha: Many Helm charts ship with <code>runAsRoot</code> or missing <code>seccompProfile</code>. When you enforce Restricted, these will fail to deploy. Check Helm chart values for <code>securityContext</code> overrides before enforcing.</HighlightBox>
+    # audit: admit and log violation (useful for discovery)
+    pod-security.kubernetes.io/audit: restricted`}
+        </CodeBlock>
+        <HighlightBox type="tip">Migration from PSP: (1) Add warn and audit labels to namespaces — pods are admitted but violations are logged and warned. (2) Use the audit logs to find violating workloads. (3) Fix security contexts in Helm chart values or pod specs. (4) Once violations are resolved, switch to enforce. Jumping straight to enforce on a live namespace is how you cause an outage.</HighlightBox>
+        <HighlightBox type="warn">Restricted level breaks many community Helm charts out of the box. Common issues: chart runs as root by default, missing seccompProfile, capabilities not dropped. Always check chart values for <code>securityContext</code> overrides before applying Restricted. Most charts support it via values — look for <code>podSecurityContext</code> and <code>containerSecurityContext</code> fields.</HighlightBox>
+        <CodeBlock language="yaml">
+{`# Pod spec that satisfies Restricted level
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]`}
+        </CodeBlock>
       </Accordion>
 
-      <Accordion title="Architecture Interview Q&A" icon={'\uD83C\uDFAF'}>
-        <HighlightBox>
-          <strong>Q: Design K8s multi-tenancy for 20 teams, 3 environments, shared cluster. Walk me through every layer.</strong>
-          <br /><br />
-          I'd start by asking: does "shared cluster" mean one cluster for all 3 envs, or one cluster per env with multiple teams? I'd push for one cluster per environment at minimum — dev/staging/prod separation at the cluster level is worth the overhead because it bounds blast radius. Within each cluster: namespace per team (team-name-env format enforced by Terraform). Each namespace gets a ResourceQuota, a LimitRange, a default-deny NetworkPolicy with surgical allow rules, and a RoleBinding to the team's OIDC group. Pod Security Standards at Baseline minimum, Restricted for prod. RBAC hierarchy: platform team has cluster-admin, team leads have edit on their namespaces, developers have view + pod exec.
-        </HighlightBox>
-        <HighlightBox>
-          <strong>Q: A developer deploys a pod that starts consuming all CPU on a node, causing evictions. What failed and how do you prevent it?</strong>
-          <br /><br />
-          Root cause: missing or too-high ResourceQuota and LimitRange in that namespace. Fix is three-layered: (1) LimitRange with a sensible max CPU per container (e.g., 4 cores). (2) ResourceQuota on the namespace so the team's total CPU is bounded. (3) PodDisruptionBudgets on critical workloads so node pressure evicts best-effort pods first. Also: Karpenter should have scaled out a new node, but that doesn't help if the problem pod had no limits and consumed all resources before the new node was ready.
-        </HighlightBox>
-        <HighlightBox>
-          <strong>Q: When would you choose separate cluster per team vs namespaces in a shared cluster?</strong>
-          <br /><br />
-          Separate cluster wins when: (1) Compliance requires hard network isolation (PCI DSS, HIPAA) that NetworkPolicy doesn't satisfy. (2) Teams need different K8s versions. (3) Very small number of large teams with their own infra ownership. Shared cluster wins when: 10+ small teams, central platform team owns the cluster, and operational overhead of 30+ clusters is unsustainable. The cost of 30 EKS control planes ($0.10/hr each = $2,160/month just for control planes) alone is a strong argument for consolidation.
-        </HighlightBox>
+      <Accordion title="Sidecar Patterns and Init Containers" icon={Server}>
+        <p style={{fontSize:13, color:'var(--muted)', marginBottom:12}}>
+          Kubernetes pods can run multiple containers. The patterns for how those containers collaborate fall into well-established categories with distinct use cases.
+        </p>
+        <CompareTable
+          headers={['Pattern', 'What It Does', 'Real Example', 'Gotcha']}
+          rows={[
+            ['<strong>Init Container</strong>', 'Runs to completion before app containers start. Sequential.', 'Wait for DB migration to finish; download config files; wait for dependency service', 'Init containers must complete successfully or pod is stuck. A slow DB migration blocks every pod restart.'],
+            ['<strong>Sidecar</strong>', 'Runs alongside app, shared network and volume', 'Log shipper (Fluent Bit), service mesh proxy (Envoy), secret injector (Vault agent)', 'Sidecar resource usage counts against pod total. A leaky sidecar can OOMKill the pod.'],
+            ['<strong>Ambassador</strong>', 'Proxy that provides local access to external service', 'Memcached proxy that handles connection pooling; local Redis proxy', 'Adds latency if proxy is on the critical path'],
+            ['<strong>Adapter</strong>', 'Transforms app output to standard format', 'Prometheus exporter for an app that does not natively expose metrics', 'Tight coupling — adapter must understand app internals'],
+          ]}
+        />
+        <HighlightBox>In Kubernetes 1.29+, sidecar containers are first-class: you can mark a container as a sidecar using <code>restartPolicy: Always</code> inside an init container spec. This gives it init-container ordering guarantees (starts before app containers) but stays running like a regular container. The previous pattern of using a regular init container for sequencing and a sidecar for co-location is now cleaner with this feature.</HighlightBox>
+      </Accordion>
+
+      <Accordion title="Multi-Cluster vs Single Cluster Tradeoffs" icon={Shield}>
+        <CompareTable
+          headers={['Consideration', 'Single Cluster (Namespaces)', 'Multiple Clusters']}
+          rows={[
+            ['Isolation', 'Namespace + NetworkPolicy + PSS (soft isolation)', 'Hard isolation — separate API server, etcd, network', 'Compliance (PCI, HIPAA) often requires hard isolation'],
+            ['Cost', 'One control plane ($0.10/hr on EKS)', 'N control planes — at 10 clusters: $720/month just for control planes', ''],
+            ['Blast radius', 'Control plane outage affects all teams', 'Outage affects only that cluster\'s workloads', ''],
+            ['Operational overhead', 'Low — one cluster to upgrade, monitor, manage', 'High — each cluster needs its own upgrades, addons, monitoring', ''],
+            ['K8s version diversity', 'All teams on same version', 'Teams can run different versions for compatibility', ''],
+          ]}
+        />
+        <HighlightBox type="tip">The practical answer at most companies: one cluster per environment (dev, staging, prod) rather than one per team. This gives you environment isolation at the cluster level while keeping team isolation at the namespace level. The prod cluster gets the most hardened settings. Dev and staging share a cluster to reduce cost.</HighlightBox>
       </Accordion>
     </div>
   );
