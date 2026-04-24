@@ -6,6 +6,7 @@ import {
   ArrowRightLeft, Microscope, KeyRound, BarChart2,
   Workflow, Box, TrendingDown, AlertTriangle, Target,
   Terminal, Globe, Search,
+  Globe2, Database, Wifi, TrendingUp, Bug,
 } from 'lucide-react';
 import { URLS } from '../../config';
 import './styles/index.css';
@@ -32,6 +33,12 @@ import Networking from './pages/Networking';
 import RequestFlow from './pages/RequestFlow';
 import EksInternals from './pages/EksInternals';
 import Secrets from './pages/Secrets';
+import MultiRegion from './pages/MultiRegion';
+import ServiceMesh from './pages/ServiceMesh';
+import DatabaseScaling from './pages/DatabaseScaling';
+import AdvancedNetworking from './pages/AdvancedNetworking';
+import AutoscalingDeepDive from './pages/AutoscalingDeepDive';
+import K8sFailureModes from './pages/K8sFailureModes';
 
 const NAV = [
   { group: 'Overview', items: [
