@@ -49,10 +49,13 @@ const NAV = [
     { path: '/knowledge/terragrunt', label: 'Terragrunt', Icon: FolderTree, badge: 'Core' },
   ]},
   { group: 'Kubernetes', items: [
-    { path: '/knowledge/k8s-core',     label: 'Core Concepts',   Icon: Ship,    badge: 'Core' },
-    { path: '/knowledge/k8s-patterns', label: 'Patterns & Design', Icon: Layout },
-    { path: '/knowledge/helm',         label: 'Helm',            Icon: Package },
-    { path: '/knowledge/karpenter',    label: 'Karpenter',       Icon: Cpu },
+    { path: '/knowledge/k8s-core',     label: 'Core Concepts',      Icon: Ship,       badge: 'Core' },
+    { path: '/knowledge/k8s-patterns', label: 'Patterns & Design',  Icon: Layout },
+    { path: '/knowledge/helm',         label: 'Helm',               Icon: Package },
+    { path: '/knowledge/karpenter',    label: 'Karpenter',          Icon: Cpu },
+    { path: '/knowledge/autoscaling',  label: 'Autoscaling',        Icon: TrendingUp },
+    { path: '/knowledge/service-mesh', label: 'Service Mesh',       Icon: Wifi },
+    { path: '/knowledge/k8s-failures', label: 'Failure Modes',      Icon: Bug },
   ]},
   { group: 'GitOps', items: [
     { path: '/knowledge/argocd',        label: 'ArgoCD',        Icon: GitPullRequest, badge: 'Core' },
@@ -83,10 +86,13 @@ const NAV = [
     { path: '/knowledge/cost', label: 'Cost Optimization', Icon: TrendingDown },
   ]},
   { group: 'Advanced Topics', items: [
-    { path: '/knowledge/incident',   label: 'Incident Response',    Icon: AlertTriangle },
-    { path: '/knowledge/sre',        label: 'SRE Concepts',         Icon: Target },
-    { path: '/knowledge/linux',      label: 'Linux & OS',           Icon: Terminal },
-    { path: '/knowledge/networking', label: 'Networking Deep Dive', Icon: Globe },
+    { path: '/knowledge/incident',            label: 'Incident Response',    Icon: AlertTriangle },
+    { path: '/knowledge/sre',                 label: 'SRE Concepts',         Icon: Target },
+    { path: '/knowledge/linux',               label: 'Linux & OS',           Icon: Terminal },
+    { path: '/knowledge/networking',          label: 'Networking Deep Dive', Icon: Globe },
+    { path: '/knowledge/advanced-networking', label: 'Advanced Networking',  Icon: Wifi },
+    { path: '/knowledge/multi-region',        label: 'Multi-Region Arch',    Icon: Globe2 },
+    { path: '/knowledge/database-scaling',    label: 'Database Scaling',     Icon: Database },
   ]},
 ];
 
@@ -185,6 +191,12 @@ function AppInner() {
             <Route path="request-flow" element={<RequestFlow />} />
             <Route path="eks-internals" element={<EksInternals />} />
             <Route path="secrets" element={<Secrets />} />
+            <Route path="multi-region" element={<MultiRegion />} />
+            <Route path="service-mesh" element={<ServiceMesh />} />
+            <Route path="database-scaling" element={<DatabaseScaling />} />
+            <Route path="advanced-networking" element={<AdvancedNetworking />} />
+            <Route path="autoscaling" element={<AutoscalingDeepDive />} />
+            <Route path="k8s-failures" element={<K8sFailureModes />} />
             <Route path="*" element={<div style={{ padding: '40px', color: 'var(--text-3)' }}>Section coming soon</div>} />
           </Routes>
         </div>
