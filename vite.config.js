@@ -11,6 +11,7 @@ export default defineConfig({
       '@knowledge': fileURLToPath(new URL('./src/apps/knowledge', import.meta.url)),
       '@quiz': fileURLToPath(new URL('./src/apps/quiz', import.meta.url)),
       '@architecture': fileURLToPath(new URL('./src/apps/architecture', import.meta.url)),
+      '@interview': fileURLToPath(new URL('./src/apps/interview', import.meta.url)),
     }
   },
   test: {
