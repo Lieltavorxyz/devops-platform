@@ -14,6 +14,8 @@ export default function SessionPage() {
     currentQuestion,
     revealed,
     rating,
+    userAnswer,
+    setAnswer,
     reveal,
     rate,
     next,
@@ -75,6 +77,8 @@ export default function SessionPage() {
           question={currentQuestion}
           revealed={revealed}
           rating={rating}
+          userAnswer={userAnswer}
+          onAnswer={setAnswer}
           onReveal={handleReveal}
           onRate={handleRate}
           onNext={handleNext}

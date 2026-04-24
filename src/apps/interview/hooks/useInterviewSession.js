@@ -59,6 +59,7 @@ export function useInterviewSession() {
       index: 0,
       ratings: {},
       revealed: {},
+      answers: {},
       startedAt: Date.now(),
     };
     writeSession(fresh);
@@ -81,6 +82,20 @@ export function useInterviewSession() {
     if (!session || !currentQuestion) return null;
     return session.ratings[currentQuestion.id] || null;
   }, [session, currentQuestion]);
+
+  const userAnswer = useMemo(() => {
+    if (!session || !currentQuestion) return '';
+    return session.answers?.[currentQuestion.id] ?? '';
+  }, [session, currentQuestion]);
+
+  const setAnswer = useCallback((text) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const id = prev.queue[prev.index];
+      if (!id) return prev;
+      return { ...prev, answers: { ...prev.answers, [id]: text } };
+    });
+  }, []);
 
   const reveal = useCallback(() => {
     setSession((prev) => {
@@ -150,6 +165,8 @@ export function useInterviewSession() {
     currentQuestion,
     revealed,
     rating,
+    userAnswer,
+    setAnswer,
     ratings: session?.ratings ?? {},
     startedAt: session?.startedAt ?? null,
     reveal,

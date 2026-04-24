@@ -19,6 +19,8 @@ export default function QuestionCard({
   question,
   revealed,
   rating,
+  userAnswer,
+  onAnswer,
   onReveal,
   onRate,
   onNext,
@@ -47,11 +49,15 @@ export default function QuestionCard({
         <>
           <div className="iv-think-hint">
             <Lightbulb size={15} strokeWidth={2} />
-            <span>
-              Think out loud. Structure your answer before revealing — you learn more
-              from the gap.
-            </span>
+            <span>Write your answer below, then reveal to compare against the model answer.</span>
           </div>
+          <textarea
+            className="iv-answer-input"
+            placeholder="Type your answer here before revealing..."
+            value={userAnswer}
+            onChange={e => onAnswer(e.target.value)}
+            rows={5}
+          />
           <div className="iv-reveal-row">
             <ThinkTimer running={!revealed} resetKey={question.id} />
             <button type="button" className="iv-reveal-btn" onClick={onReveal}>
@@ -70,7 +76,14 @@ export default function QuestionCard({
             <div className="iv-answer-text">{question.answer}</div>
           </div>
 
-          <KeyPointsBox points={question.keyPoints} />
+          {userAnswer && userAnswer.trim().length > 0 && (
+            <div className="iv-your-answer">
+              <span className="iv-answer-label">Your answer</span>
+              <div className="iv-your-answer-text">{userAnswer}</div>
+            </div>
+          )}
+
+          <KeyPointsBox points={question.keyPoints} userAnswer={userAnswer} />
 
           <FollowUpCallout text={question.followUp} />
 
