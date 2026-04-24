@@ -4,6 +4,7 @@ import { URLS } from '../../config'
 const TABS = [
   { to: '/knowledge', label: 'Knowledge' },
   { to: '/quiz',      label: 'Quiz'      },
+  { to: '/interview', label: 'Interview' },
 ]
 
 export default function TopBar() {
