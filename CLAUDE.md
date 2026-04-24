@@ -244,6 +244,54 @@ docker compose up             # frontend + pocketbase backend
 
 ---
 
+### Phase 7 — New KB Topics (Interview Depth)
+**Goal**: Add 6 new deep-dive topic pages covering the areas most commonly probed in senior DevOps interviews — multi-region architecture, service mesh, database scaling, advanced networking, and autoscaling patterns.
+
+**Agent: Developer (Opus)**
+| # | Task | Status |
+|---|------|--------|
+| P7-1 | KB page: Multi-Region Architecture — active-active vs active-passive, global load balancing, DNS vs anycast routing, DB replication patterns | ⬜ |
+| P7-2 | KB page: Service Mesh — Istio architecture, mTLS, traffic management, sidecar vs ambient, when to use vs when not to | ⬜ |
+| P7-3 | KB page: Database Scaling Patterns — read replicas, sharding, CQRS, geo-routing, consistency trade-offs (CAP theorem in practice) | ⬜ |
+| P7-4 | KB page: Advanced Networking — BGP basics, anycast, ECMP, eBPF in k8s, CNI comparison (Cilium vs Calico vs Flannel) | ⬜ |
+| P7-5 | KB page: Autoscaling Deep-Dive — HPA internals, VPA, KEDA (event-driven), Karpenter node provisioning, scaling pitfalls | ⬜ |
+| P7-6 | KB page: K8s Failure Modes & Debugging — what breaks at scale, pod pending root causes, OOMKill patterns, etcd pressure, network policy debugging | ⬜ |
+| P7-7 | Wire new pages into KB sidebar and home grid | ⬜ |
+| P7-8 | QA pass — all pages lint clean, render correctly, no emojis | ⬜ |
+
+---
+
+### Phase 8 — Interview Practice Feature
+**Goal**: A dedicated interview practice section with 20-30 curated senior DevOps interview questions, detailed model answers, and a UI that simulates the think-before-reveal dynamic of a real interview.
+
+**Agent: Research (Sonnet) + Designer (Opus) + Developer (Opus)**
+
+#### Content
+| # | Task | Status |
+|---|------|--------|
+| P8-1 | Research: 20-30 most common senior DevOps interview questions with model answers — focus on scale, k8s networking, multi-region, incident response, architecture design | ⬜ |
+| P8-2 | Structure questions: category, difficulty, question, model answer, key points interviewer listens for, follow-up questions | ⬜ |
+| P8-3 | Write `src/apps/interview/data/questions.js` — all 20-30 questions as structured data | ⬜ |
+
+#### UI Design
+| # | Task | Status |
+|---|------|--------|
+| P8-4 | Design: Interview practice page layout — category filter, question card, think timer, reveal answer, "what the interviewer listens for" callout | ⬜ |
+| P8-5 | Design: Progress tracking — questions answered, self-rated confidence (1-3), session summary | ⬜ |
+
+#### Implementation
+| # | Task | Status |
+|---|------|--------|
+| P8-6 | `src/apps/interview/` app scaffold — pages, components, data, styles | ⬜ |
+| P8-7 | `QuestionCard` component — question text, think timer, reveal toggle, model answer, key points | ⬜ |
+| P8-8 | `InterviewHome` page — category grid, difficulty filter, start session | ⬜ |
+| P8-9 | `InterviewSession` page — one question at a time, self-rate confidence, next/prev | ⬜ |
+| P8-10 | `SessionSummary` page — which questions were shaky, suggested KB pages to revisit | ⬜ |
+| P8-11 | Wire into root router (`/interview/*`) and TopBar nav | ⬜ |
+| P8-12 | QA pass — full flow works, mobile responsive, lint clean | ⬜ |
+
+---
+
 ## Known Gotchas
 
 ### JSX escaping in KB pages
