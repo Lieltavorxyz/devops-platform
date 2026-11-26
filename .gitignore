@@ -2,4 +2,13 @@ node_modules/
 dist/
 pb_data/
 .env
+.env.*
+!.env.production
+!.env.example
 *.local
+
+# Local tooling / not part of this project
+.claude/
+.agents/
+skills-lock.json
+babito-dating/
