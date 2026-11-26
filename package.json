@@ -12,30 +12,30 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.17.0",
-    "lucide-react": "^0.400.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.5.0"
+    "@excalidraw/excalidraw": "0.17.6",
+    "lucide-react": "0.400.0",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "react-router-dom": "7.18.4"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
+    "@eslint/js": "10.0.1",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
     "@types/react": "18.3.1",
     "@types/react-dom": "18.3.0",
-    "@vitejs/plugin-react": "^4.4.1",
+    "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.4.17",
-    "eslint": "^10.2.0",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "jsdom": "^29.0.2",
+    "eslint": "10.2.0",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "eslint-plugin-react-refresh": "0.5.2",
+    "globals": "17.5.0",
+    "jsdom": "29.0.2",
     "postcss": "8.4.35",
     "tailwindcss": "3.4.1",
     "typescript": "5.3.3",
-    "vite": "^6.3.1",
-    "vitest": "^4.1.4"
+    "vite": "6.4.4",
+    "vitest": "4.1.4"
   }
 }

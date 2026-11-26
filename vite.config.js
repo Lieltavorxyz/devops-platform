@@ -4,7 +4,9 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Absolute base: BrowserRouter serves nested routes (/quiz/session), so a
+  // relative base would resolve assets to /quiz/assets/* and blank the page.
+  base: '/',
   resolve: {
     alias: {
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
@@ -18,5 +20,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/test-setup.js',
+    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
   },
 })

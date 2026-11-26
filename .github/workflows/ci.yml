@@ -1,10 +1,14 @@
 name: CI
 
+# PRs are gated locally by the devops-reviewer agent (.claude/agents/).
+# This only re-checks main after a merge, as a safety net.
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   ci:
@@ -12,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -30,3 +34,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Regression guard: a relative base ('./assets/') blanks every nested
+      # route on Cloudflare Pages. Assets must be referenced from the root.
+      - name: Check asset paths are absolute
+        run: |
+          if grep -Eq '(src|href)="(\./)?assets/' dist/index.html; then
+            echo "dist/index.html uses relative asset paths — set base: '/' in vite.config.js" >&2
+            exit 1
+          fi

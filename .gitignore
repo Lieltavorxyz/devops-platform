@@ -2,4 +2,12 @@ node_modules/
 dist/
 pb_data/
 .env
+.env.*
+!.env.production
+!.env.example
 *.local
+
+# Claude Code local state (shared agents in .claude/agents/ stay tracked)
+.claude/worktrees/
+.claude/skills/
+.claude/settings.local.json
