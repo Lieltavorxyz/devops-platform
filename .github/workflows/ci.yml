@@ -1,10 +1,14 @@
 name: CI
 
+# PRs are gated locally by the devops-reviewer agent (.claude/agents/).
+# This only re-checks main after a merge, as a safety net.
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   ci:
