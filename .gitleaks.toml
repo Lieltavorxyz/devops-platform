@@ -1,0 +1,15 @@
+# Secret scanning config, used by the pre-commit hook and the secret-scan workflow.
+# Starts from gitleaks' built-in ruleset and adds rules specific to this repo.
+title = "devops-platform"
+
+[extend]
+useDefault = true
+
+# Anything prefixed VITE_ is compiled into the public JS bundle and served to
+# every visitor. A VITE_ variable whose name looks like a secret is a leak by
+# definition, even if the value itself doesn't match a known token format.
+[[rules]]
+id = "vite-public-secret"
+description = "Secret-looking VITE_ variable (VITE_* values are shipped to the browser)"
+regex = '''VITE_[A-Z0-9_]*(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL)[A-Z0-9_]*\s*[=:]\s*['"]?[^\s'"]{8,}'''
+keywords = ["vite_"]
