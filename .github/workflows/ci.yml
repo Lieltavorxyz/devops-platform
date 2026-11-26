@@ -30,3 +30,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Regression guard: a relative base ('./assets/') blanks every nested
+      # route on Cloudflare Pages. Assets must be referenced from the root.
+      - name: Check asset paths are absolute
+        run: |
+          if grep -q '"\./assets/' dist/index.html; then
+            echo "dist/index.html references ./assets/ — set base: '/' in vite.config.js" >&2
+            exit 1
+          fi
