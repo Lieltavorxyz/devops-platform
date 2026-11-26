@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Blocks commits that contain secrets. Enabled by `npm install` (see the
+# "prepare" script), which sets core.hooksPath to .githooks.
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so secrets can't be checked." >&2
+  echo "Install it with: brew install gitleaks" >&2
+  exit 1
+fi
+
+if ! gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml; then
+  echo "" >&2
+  echo "pre-commit: possible secret in staged changes. Commit blocked." >&2
+  echo "Move the value to an untracked .env file or a CI/Cloudflare secret." >&2
+  echo "If you already pushed a real secret: rotate it first, then clean history." >&2
+  exit 1
+fi
