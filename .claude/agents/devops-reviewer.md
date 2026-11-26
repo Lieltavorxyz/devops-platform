@@ -29,10 +29,16 @@ git fetch origin pull/<N>/head        # FETCH_HEAD is now the PR head
 git worktree add --detach .claude/worktrees/review-pr-<N> FETCH_HEAD
 cd .claude/worktrees/review-pr-<N>
 npm ci --legacy-peer-deps
+# Use the PR's config if it has one, otherwise main's; never weaker than main.
+[ -f .gitleaks.toml ] || git show origin/main:.gitleaks.toml > .gitleaks.toml
 gitleaks git . --config .gitleaks.toml --redact --log-opts="origin/main..HEAD"
 npm run lint && npm test && npm run build
 gitleaks dir dist --config .gitleaks.toml --redact
 ```
+
+If the PR changes `.gitleaks.toml` itself, also scan with main's version and
+treat any rule removed or allowlist widened as blocking unless the PR body
+justifies it: weakening the scanner is how leaks get waved through.
 
 `.claude/worktrees/` is gitignored. When finished, from the repo root:
 `git worktree remove --force .claude/worktrees/review-pr-<N>`.
