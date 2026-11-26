@@ -8,7 +8,9 @@ pb_data/
 *.local
 
 # Local tooling / not part of this project
-.claude/
+.claude/worktrees/
+.claude/skills/
+.claude/settings.local.json
 .agents/
 skills-lock.json
 babito-dating/
